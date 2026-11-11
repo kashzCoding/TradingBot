@@ -1,0 +1,59 @@
+; systemd-Unit fuer den Trading-Bot selbst (trading_bot/main.py).
+;
+; Dies ist eine TEMPLATE-Datei -- die Platzhalter __REPO_ROOT__, __USER__ und
+; __GROUP__ werden von deploy/install.sh beim Einrichten automatisch durch
+; den tatsaechlichen Pfad/Benutzer auf diesem Pi ersetzt (nicht von Hand
+; editieren, sondern install.sh erneut laufen lassen, falls sich der Pfad
+; aendert -- siehe deploy/README.md).
+[Unit]
+Description=Alpaca Trading Bot
+After=network-online.target tailscaled.service
+Wants=network-online.target
+; StartLimitIntervalSec/-Burst gehoeren ab systemd 230 ins [Unit]-Abschnitt:
+; hoert die 5 Fehlversuche in 10 Minuten (600s) auf, geht in den Zustand
+; "failed" und versucht es NICHT weiter automatisch -- verhindert eine
+; endlose Restart-Schleife bei einem dauerhaften Fehler (z.B. falsche
+; API-Keys). systemd protokolliert das automatisch im Journal
+; ("start-limit-hit"), zusaetzlich benachrichtigt OnFailure= unten per
+; Telegram, damit man es nicht erst beim naechsten Dashboard-Blick merkt.
+StartLimitIntervalSec=600
+StartLimitBurst=5
+OnFailure=tradingbot-failure-notify@%n.service
+
+[Service]
+Type=simple
+User=__USER__
+Group=__GROUP__
+WorkingDirectory=__REPO_ROOT__
+ExecStart=__REPO_ROOT__/trading_bot/.venv/bin/python -m trading_bot.main
+Restart=always
+RestartSec=10
+
+; Speicherlimit gegen einen durchgehenden Memory-Leak, der sonst den
+; kompletten Pi (nur 512MB RAM beim Pi Zero W) in die Knie zwingen wuerde.
+; MemoryHigh ist ein weicher Drosselpunkt (cgroup wird unter Druck gesetzt,
+; bekommt aber noch eine Chance sich zu erholen), MemoryMax ist hart -- wird
+; er ueberschritten, killt der Kernel-OOM-Killer den Prozess innerhalb
+; dieser Unit, Restart=always startet danach neu. Startwerte fuer einen Pi
+; Zero W (512MB gesamt, single-core); nach ein paar Tagen realem Betrieb mit
+; `systemctl status tradingbot` / `free -h` pruefen und ueber
+; `sudo systemctl edit tradingbot` bei Bedarf anpassen (siehe README).
+MemoryHigh=256M
+MemoryMax=350M
+
+; Moderate Haertung, die auf einer typischen Pi-OS-Installation nicht
+; bricht (kein ProtectHome/ProtectSystem, da das Repo i.d.R. im HOME-
+; Verzeichnis liegt und trades.csv/dashboard_token.txt dort beschreibbar
+; bleiben muessen).
+NoNewPrivileges=true
+PrivateTmp=true
+
+; Bot-Ausgabe (compact Logging aus bot.py) landet im systemd-Journal statt
+; in einer eigenen Datei -- siehe deploy/README.md, Abschnitt SD-Karten-
+; Schonung, fuer die journald-Groessenbegrenzung.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tradingbot
+
+[Install]
+WantedBy=multi-user.target

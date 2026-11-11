@@ -1,0 +1,14 @@
+# Von deploy/install.sh an /etc/fstab angehaengt, falls dort noch kein
+# eigener /tmp-Mountpoint existiert. Raspberry Pi OS (auch Lite) mountet
+# /tmp standardmaessig NICHT als tmpfs -- es liegt ohne diese Zeile ganz
+# normal auf der SD-Karte wie jedes andere Verzeichnis.
+#
+# size=64M ist bewusst klein gewaehlt (Pi Zero W hat nur 512MB RAM
+# insgesamt): reicht fuer healthcheck.sh's paar Byte grosse Dedup-Flags
+# unter /tmp/tradingbot-health/ und uebliche kurzlebige /tmp-Nutzung
+# (z.B. durch pip/apt), ohne dem restlichen System spuerbar RAM wegzunehmen.
+# nosuid/nodev sind ueblich fuer einen tmpfs-/tmp. Bewusst OHNE noexec:
+# manche pip-Installationen fuehren waehrend eines nativen Builds Code aus
+# einem Temp-Verzeichnis aus -- mit noexec koennte das kuenftige
+# "pip install" auf dem Pi ueberraschend fehlschlagen.
+tmpfs /tmp tmpfs defaults,noatime,nosuid,nodev,mode=1777,size=64M 0 0

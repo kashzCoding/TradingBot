@@ -1,0 +1,13 @@
+# /etc/cron.d/tradingbot-weekly-reboot -- woechentlicher Neustart als
+# zusaetzliches Sicherheitsnetz zum Hardware-Watchdog (siehe deploy/README.md).
+#
+# Sonntag 03:00 Uhr Systemzeit des Pi: die US-Boersen (Alpaca) sind das
+# gesamte Wochenende durchgehend geschlossen, ein Zeitpunkt tief im
+# Wochenende ist unabhaengig von der genauen Zeitzoneneinstellung des Pi
+# sicher weit von Freitagsschluss/Montagseroeffnung entfernt.
+#
+# TEMPLATE-Datei: __REPO_ROOT__ wird von deploy/install.sh ersetzt.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+0 3 * * 0 root __REPO_ROOT__/deploy/scripts/weekly_reboot.sh >/dev/null 2>>/var/log/healthcheck.log

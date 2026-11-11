@@ -1,0 +1,17 @@
+; Generisches "auf Fehlschlag benachrichtigen"-Template, per OnFailure= aus
+; tradingbot.service (und optional tradingbot-dashboard.service) ausgeloest.
+; Feuert NUR, wenn eine Unit endgueltig in den "failed"-Zustand geht -- bei
+; tradingbot.service also erst, nachdem StartLimitBurst/-IntervalSec
+; ausgeschoepft sind (5 Fehlversuche in 10 Minuten) und systemd selbst
+; aufgehoert hat, automatisch neu zu starten. Genau dieser Zustand soll per
+; Telegram gemeldet werden, nicht jeder einzelne Restart-Versuch.
+;
+; %i = escapeter Name der fehlgeschlagenen Unit (z.B. "tradingbot.service"),
+; via OnFailure=tradingbot-failure-notify@%n.service automatisch befuellt.
+[Unit]
+Description=Telegram-Benachrichtigung: %i ist dauerhaft fehlgeschlagen
+
+[Service]
+Type=oneshot
+User=__USER__
+ExecStart=__REPO_ROOT__/deploy/scripts/notify.sh "🔴 %i ist nach wiederholten Fehlversuchen dauerhaft fehlgeschlagen (StartLimitBurst erreicht) und wird NICHT mehr automatisch neu gestartet. Bitte manuell pruefen: sudo systemctl status %i && sudo journalctl -u %i -n 50"

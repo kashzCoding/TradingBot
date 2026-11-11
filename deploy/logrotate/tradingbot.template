@@ -1,0 +1,52 @@
+# /etc/logrotate.d/tradingbot -- von deploy/install.sh aus dieser Template-
+# Datei generiert. Aenderungen HIER gehen beim naechsten install.sh-Lauf
+# verloren -- stattdessen deploy/logrotate/tradingbot.template anpassen.
+#
+# Zwei bewusst UNTERSCHIEDLICHE Regeln statt einer einheitlichen "7 Tage,
+# dann weg"-Policy fuer alles:
+#
+# 1) /var/log/healthcheck.log -- reine Betriebs-/Diagnosemeldungen ohne
+#    Langzeitwert. Hier greift exakt die angeforderte Regel: taeglich,
+#    7 Tage Historie, komprimiert.
+#
+# 2) trades.csv -- das ist der tatsaechliche Handelsverlauf (Begruendung
+#    jedes Trades, fuer Steuer-/Auditzwecke relevant). Eine 7-Tage-Loeschung
+#    wuerde hier echte, nicht wiederherstellbare Handelsdaten vernichten --
+#    siehe deploy/README.md, Abschnitt "SD-Karten-Schonung", wo trades.csv
+#    ausdruecklich als Beispiel fuer Daten genannt wird, die NICHT verworfen
+#    werden duerfen. Stattdessen: monatlich rotieren, komprimieren, aber
+#    nicht automatisch loeschen (rotate 120 = 10 Jahre Vorhalt). Falls die
+#    strikte 7-Tage-Regel hier ausdruecklich doch gewuenscht ist, einfach
+#    "rotate 120" durch "rotate 7" und "monthly" durch "daily" ersetzen --
+#    das vernichtet dann aber unwiederbringlich aeltere Handelshistorie.
+
+/var/log/healthcheck.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 root root
+}
+
+__REPO_ROOT__/trades.csv {
+    monthly
+    rotate 120
+    compress
+    missingok
+    notifempty
+    dateext
+    dateformat -%Y-%m
+    create 0644 __USER__ __GROUP__
+    postrotate
+        # trade_logger.TradeLogger schreibt die CSV-Kopfzeile nur einmal im
+        # Konstruktor (wenn die Datei fehlt/leer ist) -- nach der Rotation
+        # ist die neue Datei leer, braucht also wieder eine Kopfzeile.
+        # Statt sie hier ein zweites Mal hart zu kodieren (Risiko: laeuft
+        # auseinander, falls sich die CSV-Spalten mal aendern), wird die
+        # ECHTE Klasse aus dem Bot-Code aufgerufen -- einzige Quelle der
+        # Wahrheit fuer das Kopfzeilen-Format bleibt trade_logger.py.
+        __VENV_PYTHON__ -c "import sys; sys.path.insert(0, '__REPO_ROOT__'); from trading_bot.trade_logger import TradeLogger; TradeLogger('__REPO_ROOT__/trades.csv')" >/dev/null 2>&1 || true
+    endscript
+}

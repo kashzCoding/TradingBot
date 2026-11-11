@@ -1,0 +1,14 @@
+# /etc/cron.d/tradingbot-healthcheck -- alle 5 Minuten Health-Check.
+#
+# TEMPLATE-Datei: __REPO_ROOT__ wird von deploy/install.sh durch den
+# tatsaechlichen Pfad ersetzt. /etc/cron.d/-Dateien brauchen eine
+# abschliessende Leerzeile, sonst ignoriert cron die letzte Zeile.
+#
+# stdout wird verworfen (healthcheck.sh loggt sich bereits selbst nach
+# /var/log/healthcheck.log), stderr wird trotzdem in dieselbe Log-Datei
+# umgeleitet, damit ein unerwarteter Skriptfehler (z.B. nach einem Update)
+# nicht unbemerkt im cron-eigenen Mail-Spool verschwindet.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+*/5 * * * * root __REPO_ROOT__/deploy/scripts/healthcheck.sh >/dev/null 2>>/var/log/healthcheck.log

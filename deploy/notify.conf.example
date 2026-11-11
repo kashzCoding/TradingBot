@@ -1,0 +1,12 @@
+# Telegram-Zugangsdaten fuer deploy/scripts/notify.sh.
+#
+# 1. Bei @BotFather (in Telegram) einen neuen Bot anlegen -> Token kopieren.
+# 2. Dem neuen Bot eine beliebige Nachricht schreiben (er muss den Chat
+#    "kennen", bevor er dir schreiben darf).
+# 3. Deine Chat-ID herausfinden, z.B.:
+#      curl -s "https://api.telegram.org/bot<DEIN_TOKEN>/getUpdates"
+#    und darin "chat":{"id": ...} suchen.
+# 4. Diese Datei nach notify.conf kopieren (OHNE .example) und beide Werte
+#    eintragen. notify.conf ist in .gitignore -- niemals committen.
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=

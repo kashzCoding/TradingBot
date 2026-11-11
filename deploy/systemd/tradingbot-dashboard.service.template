@@ -1,0 +1,41 @@
+; systemd-Unit fuer trading_bot/api_server.py (Mobile-Dashboard-API).
+;
+; NICHT explizit in den 8 Anforderungspunkten verlangt, aber im gleichen
+; Sinne ergaenzt: bisher lief api_server.py nur manuell per tmux (siehe
+; trading_bot/README.md) -- ohne Auto-Restart wuerde ein Absturz der
+; Dashboard-API bedeuten, dass man den Bot-Status erst dann nicht mehr per
+; Handy sehen kann, wenn man ihn am dringendsten braucht. Kann ignoriert
+; werden (Unit einfach nicht aktivieren), falls tmux bevorzugt wird.
+;
+; Platzhalter __REPO_ROOT__/__USER__/__GROUP__ werden von install.sh ersetzt.
+[Unit]
+Description=Trading-Bot Dashboard-API (api_server.py)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=5
+OnFailure=tradingbot-failure-notify@%n.service
+
+[Service]
+Type=simple
+User=__USER__
+Group=__GROUP__
+WorkingDirectory=__REPO_ROOT__
+ExecStart=__REPO_ROOT__/trading_bot/.venv/bin/python -m trading_bot.api_server
+Restart=always
+RestartSec=10
+
+; Deutlich kleinerer Speicherbedarf als der Bot selbst (kein pandas/numpy
+; auf dem Codepfad von api_server.py) -- Startwert fuer den Pi Zero W.
+MemoryHigh=100M
+MemoryMax=150M
+
+NoNewPrivileges=true
+PrivateTmp=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tradingbot-dashboard
+
+[Install]
+WantedBy=multi-user.target

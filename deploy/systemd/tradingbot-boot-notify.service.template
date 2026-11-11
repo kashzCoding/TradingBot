@@ -1,0 +1,16 @@
+; Laeuft einmal bei jedem Boot, meldet per Telegram ob der vorherige
+; Neustart geplant (weekly_reboot.sh) oder ungeplant (Watchdog-Reset,
+; Stromausfall) war -- siehe deploy/scripts/boot_notify.sh.
+;
+; Platzhalter __REPO_ROOT__ wird von deploy/install.sh ersetzt.
+[Unit]
+Description=Trading-Bot Boot-Benachrichtigung (geplant vs. ungeplant)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=__REPO_ROOT__/deploy/scripts/boot_notify.sh
+
+[Install]
+WantedBy=multi-user.target

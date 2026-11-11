@@ -1,0 +1,11 @@
+# Tailscale TLS-Zertifikat fuer trading_bot/api_server.py (siehe
+# trading_bot/README.md) -- enthaelt den privaten Schluessel, gehoert
+# niemals ins Repo.
+tradingbot.tailed8a6b.ts.net.crt
+tradingbot.tailed8a6b.ts.net.key
+
+# Telegram-Zugangsdaten fuer deploy/scripts/notify.sh -- enthaelt den
+# Bot-Token, gehoert niemals ins Repo. deploy/notify.conf.example ist die
+# eingecheckte Vorlage.
+deploy/notify.conf
+

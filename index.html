@@ -1,1300 +1,1009 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#E8704A">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="BeanFocus">
-  <title>BeanFocus 🫘</title>
-  <link rel="manifest" href="manifest.json">
-  <!-- Bean icon injected dynamically via canvas (see script below) -->
-  <script>
-    // Generate bean PNG icon and inject into <head> before fonts load
-    (function() {
-      function makeBean(size) {
-        const c = document.createElement('canvas');
-        c.width = c.height = size;
-        const ctx = c.getContext('2d');
-        const s = size / 192;
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Trading">
+<title>Trading Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%230b0f14'/%3E%3Crect x='22' y='55' width='12' height='30' fill='%2300e676'/%3E%3Crect x='44' y='32' width='12' height='53' fill='%2300e676'/%3E%3Crect x='66' y='18' width='12' height='67' fill='%23ff5252'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%230b0f14'/%3E%3Crect x='22' y='55' width='12' height='30' fill='%2300e676'/%3E%3Crect x='44' y='32' width='12' height='53' fill='%2300e676'/%3E%3Crect x='66' y='18' width='12' height='67' fill='%23ff5252'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #0b0f14;
+    --bg-card: #131924;
+    --bg-card-2: #1a2230;
+    --border: rgba(255,255,255,0.08);
+    --text: #e8ecf1;
+    --text-dim: #7c8797;
+    --green: #00e676;
+    --red: #ff5252;
+    --amber: #f5a623;
+    --accent: #3b82f6;
+    --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
 
-        // Background circle
-        ctx.beginPath();
-        ctx.arc(size/2, size/2, size/2, 0, Math.PI*2);
-        ctx.fillStyle = '#FDF6EE';
-        ctx.fill();
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-        // Outer bean body
-        ctx.save();
-        ctx.translate(size*0.18, size*0.10);
-        ctx.scale(s, s);
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+  }
 
-        // Bean shape (ellipse + dent)
-        ctx.beginPath();
-        ctx.ellipse(78, 96, 66, 82, 0, 0, Math.PI*2);
-        ctx.fillStyle = '#6DB54C';
-        ctx.fill();
+  body {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 24px);
+    overscroll-behavior-y: contain;
+  }
 
-        // Bean dent / crease
-        ctx.beginPath();
-        ctx.moveTo(26, 80);
-        ctx.bezierCurveTo(50, 40, 106, 40, 130, 80);
-        ctx.bezierCurveTo(106, 68, 50, 68, 26, 80);
-        ctx.fillStyle = '#5A9A3C';
-        ctx.fill();
+  .container { max-width: 480px; margin: 0 auto; padding: 16px; }
 
-        // Left eye white
-        ctx.beginPath();
-        ctx.ellipse(52, 92, 18, 20, -0.2, 0, Math.PI*2);
-        ctx.fillStyle = 'white';
-        ctx.fill();
+  /* --- Header --- */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 4px 20px;
+  }
 
-        // Right eye white
-        ctx.beginPath();
-        ctx.ellipse(104, 92, 18, 20, 0.2, 0, Math.PI*2);
-        ctx.fillStyle = 'white';
-        ctx.fill();
+  .header-title { display: flex; align-items: center; gap: 10px; }
+  .header-title h1 { font-size: 17px; font-weight: 600; margin: 0; letter-spacing: 0.2px; }
 
-        // Left pupil
-        ctx.beginPath();
-        ctx.arc(55, 94, 9, 0, Math.PI*2);
-        ctx.fillStyle = '#2C3E10';
-        ctx.fill();
+  .status-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 0 rgba(0,230,118,0.55);
+    animation: pulse 2s infinite;
+    flex-shrink: 0;
+  }
+  .status-dot.offline { background: var(--red); animation: none; box-shadow: none; }
+  .status-dot.loading { background: var(--amber); animation: pulse-amber 1.1s infinite; }
 
-        // Right pupil
-        ctx.beginPath();
-        ctx.arc(107, 94, 9, 0, Math.PI*2);
-        ctx.fillStyle = '#2C3E10';
-        ctx.fill();
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(0,230,118,0.5); }
+    70%  { box-shadow: 0 0 0 9px rgba(0,230,118,0); }
+    100% { box-shadow: 0 0 0 0 rgba(0,230,118,0); }
+  }
+  @keyframes pulse-amber {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
 
-        // Eye shine left
-        ctx.beginPath();
-        ctx.arc(58, 90, 3.5, 0, Math.PI*2);
-        ctx.fillStyle = 'white';
-        ctx.fill();
+  .icon-btn {
+    background: none; border: none; color: var(--text-dim);
+    padding: 8px; cursor: pointer; line-height: 0;
+    border-radius: 8px;
+  }
+  .icon-btn:active { background: var(--bg-card); }
+  .icon-btn svg { width: 22px; height: 22px; display: block; }
 
-        // Eye shine right
-        ctx.beginPath();
-        ctx.arc(110, 90, 3.5, 0, Math.PI*2);
-        ctx.fillStyle = 'white';
-        ctx.fill();
+  /* --- Connection banner --- */
+  .banner {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,82,82,0.12);
+    border: 1px solid rgba(255,82,82,0.35);
+    color: var(--red);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 13px;
+    margin-bottom: 16px;
+    line-height: 1.4;
+  }
+  .banner.show { display: flex; }
+  .banner.setup { background: rgba(245,166,35,0.12); border-color: rgba(245,166,35,0.35); color: var(--amber); }
 
-        // Smile
-        ctx.beginPath();
-        ctx.arc(78, 118, 22, 0.2, Math.PI - 0.2);
-        ctx.strokeStyle = '#3A6A1A';
-        ctx.lineWidth = 7;
-        ctx.lineCap = 'round';
-        ctx.stroke();
+  /* --- Cards --- */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px;
+    margin-bottom: 14px;
+  }
 
-        ctx.restore();
-        return c.toDataURL('image/png');
-      }
+  .mode-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .mode-badge.paper { background: rgba(59,130,246,0.15); color: var(--accent); }
+  .mode-badge.live { background: rgba(255,82,82,0.18); color: var(--red); }
 
-      window._beanIcon192 = makeBean(192);
-      window._beanIcon512 = makeBean(512);
+  .equity-value {
+    font-family: var(--mono);
+    font-size: 40px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+  }
 
-      // Apple touch icon
-      const link = document.createElement('link');
-      link.rel = 'apple-touch-icon';
-      link.href = window._beanIcon192;
-      document.head.appendChild(link);
+  .pl-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: 6px;
+    font-family: var(--mono);
+    font-size: 15px;
+  }
+  .pl-row .arrow { font-size: 13px; }
+  .positive { color: var(--green); }
+  .negative { color: var(--red); }
+  .neutral { color: var(--text-dim); }
 
-      // Favicon
-      const fav = document.createElement('link');
-      fav.rel = 'icon';
-      fav.type = 'image/png';
-      fav.href = makeBean(64);
-      document.head.appendChild(fav);
-    })();
-  </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,700;0,9..144,900;1,9..144,800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg:          #FDF6EE;
-      --surface:     #FFFFFF;
-      --surface2:    #F5EDE3;
-      --border:      #E8D9CC;
-      --primary:     #E8704A;
-      --primary-l:   rgba(232,112,74,0.12);
-      --green:       #5B9B47;
-      --green-l:     rgba(91,155,71,0.12);
-      --amber:       #D4851A;
-      --blue:        #4A7FC1;
-      --text:        #2C1810;
-      --muted:       #8C7060;
-      --muted2:      #B09080;
-      --tab-h:       64px;
-      --safe-b:      env(safe-area-inset-bottom, 0px);
-      --safe-t:      env(safe-area-inset-top,    0px);
-    }
+  .sub-stats {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .sub-stat { text-align: left; }
+  .sub-stat .label { font-size: 11px; color: var(--text-dim); margin-bottom: 3px; }
+  .sub-stat .value { font-family: var(--mono); font-size: 14px; }
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  /* --- Kontostand-Verlauf (Equity-Chart) --- */
+  .period-switcher {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .period-btn {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 4px;
+    border-radius: 10px;
+    cursor: pointer;
+    /* Grosszuegige Tapflaeche fuers Handy (Anforderung 6) */
+    min-height: 36px;
+  }
+  .period-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .period-btn:active { opacity: 0.8; }
 
-    html, body {
-      height: 100%;
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'DM Sans', sans-serif;
-      overflow: hidden;
-      -webkit-tap-highlight-color: transparent;
-    }
+  .equity-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .equity-stat .label { font-size: 11px; color: var(--text-dim); margin-bottom: 3px; }
+  .equity-stat .value { font-family: var(--mono); font-size: 14px; font-weight: 600; }
+  .equity-stat .value.wide { grid-column: 1 / -1; font-size: 15px; }
 
-    #app {
-      display: flex; flex-direction: column;
-      height: 100%; max-width: 480px; margin: 0 auto;
-      position: relative;
-    }
+  .chart-wrap {
+    position: relative;
+    width: 100%;
+    /* Feste Hoehe statt aspect-ratio -- bleibt auch bei sehr schmalen
+       Handybreiten gut lesbar statt zu flach zu werden. */
+    height: 220px;
+  }
+  .chart-wrap canvas { width: 100% !important; height: 100% !important; }
 
-    /* ── VIEWS ── */
-    .view {
-      flex: 1; overflow-y: auto; overscroll-behavior: contain;
-      padding-top: var(--safe-t);
-      padding-bottom: calc(var(--tab-h) + var(--safe-b) + 24px);
-      display: none;
-    }
-    .view.active { display: block; }
+  .chart-message {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    height: 220px;
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 0 20px;
+    line-height: 1.5;
+  }
+  .chart-message.show { display: flex; }
+  .chart-message.err { color: var(--red); }
 
-    /* ── PAGE HEADER ── */
-    .page-header {
-      padding: 28px 20px 16px;
-      display: flex; justify-content: space-between; align-items: flex-start;
-    }
-    .page-title {
-      font-family: 'Fraunces', serif; font-size: 30px; font-weight: 900;
-      line-height: 1.1; color: var(--text);
-    }
-    .page-title span { color: var(--primary); }
-    .page-sub { font-size: 13px; color: var(--muted); margin-top: 4px; font-weight: 500; }
+  /* --- Section headings --- */
+  .section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 22px 4px 10px;
+  }
 
-    .points-badge {
-      background: var(--primary); color: white; border-radius: 20px;
-      padding: 6px 14px; font-size: 14px; font-weight: 700;
-      display: flex; align-items: center; gap: 4px; flex-shrink: 0;
-      box-shadow: 0 3px 10px rgba(232,112,74,0.3);
-    }
+  .empty-hint {
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 14px 4px;
+    text-align: center;
+  }
 
-    /* ── LIMIT CARD ── */
-    .card {
-      margin: 0 20px 14px;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 20px; padding: 18px;
-    }
-    .card-label {
-      font-size: 11px; font-weight: 700; color: var(--muted);
-      text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px;
-    }
-    .limit-header {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 10px;
-    }
-    .limit-nums {
-      font-family: 'Fraunces', serif; font-size: 15px; font-weight: 700;
-    }
-    .limit-nums .sep { color: var(--muted2); margin: 0 3px; }
-    .limit-nums .max { color: var(--muted); }
+  /* --- Positions --- */
+  .position-row, .trade-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 10px;
+  }
+  .position-row:last-child, .trade-row:last-child { border-bottom: none; }
 
-    .prog-bg {
-      height: 14px; background: var(--surface2); border-radius: 7px;
-      overflow: hidden; margin-bottom: 12px;
-    }
-    .prog-fill {
-      height: 100%; border-radius: 7px;
-      background: var(--green);
-      transition: width .6s cubic-bezier(.34,1.56,.64,1), background .4s;
-    }
-    .prog-fill.warn { background: var(--amber); }
-    .prog-fill.over { background: var(--primary); }
+  .row-left { min-width: 0; }
+  .symbol { font-weight: 700; font-size: 15px; }
+  .row-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; font-family: var(--mono); }
 
-    .plat-row { display: flex; gap: 8px; }
-    .plat-chip {
-      flex: 1; background: var(--surface2); border-radius: 10px;
-      padding: 9px 10px; display: flex; align-items: center; gap: 6px;
-      font-size: 13px; font-weight: 600;
-    }
-    .plat-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-    .plat-name { color: var(--muted); }
-    .plat-time { color: var(--text); font-family: 'Fraunces', serif; font-weight: 700; margin-left: auto; }
+  .row-right { text-align: right; flex-shrink: 0; }
+  .row-right .main-value { font-family: var(--mono); font-size: 15px; font-weight: 600; }
+  .row-right .sub-value { font-family: var(--mono); font-size: 12px; margin-top: 2px; }
 
-    /* ── FOCUS TIMER ── */
-    .timer-num {
-      text-align: center; font-family: 'Fraunces', serif;
-      font-size: 58px; font-weight: 900; color: var(--text);
-      letter-spacing: -3px; line-height: 1; margin: 4px 0 16px;
-      transition: color .3s;
-    }
-    .timer-num.running { color: var(--primary); }
+  /* --- Trades --- */
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    padding: 2px 7px;
+    border-radius: 5px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  .badge.buy { background: rgba(0,230,118,0.16); color: var(--green); }
+  .badge.sell { background: rgba(255,82,82,0.16); color: var(--red); }
 
-    .dur-pills { display: flex; gap: 7px; justify-content: center; margin-bottom: 14px; }
-    .dur-pill {
-      background: var(--surface2); border: 2px solid var(--border);
-      border-radius: 20px; padding: 6px 13px; font-size: 13px;
-      font-weight: 700; cursor: pointer; color: var(--muted);
-      font-family: 'DM Sans', sans-serif; transition: all .15s;
-    }
-    .dur-pill.on { background: var(--primary-l); border-color: var(--primary); color: var(--primary); }
+  .trade-reason {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 
-    .timer-btns { display: flex; gap: 8px; }
-    .tbtn {
-      flex: 1; border: none; border-radius: 12px; padding: 14px;
-      font-size: 15px; font-weight: 700; cursor: pointer;
-      font-family: 'DM Sans', sans-serif; transition: opacity .15s, transform .1s;
-    }
-    .tbtn:active { transform: scale(.97); opacity: .85; }
-    .tbtn.go   { background: var(--primary); color: white; box-shadow: 0 3px 12px rgba(232,112,74,.3); }
-    .tbtn.rst  { background: var(--surface2); color: var(--muted); }
+  footer {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 11px;
+    font-family: var(--mono);
+    margin-top: 18px;
+  }
+  footer button {
+    background: none; border: none; color: var(--accent);
+    font-family: var(--sans); font-size: 12px; cursor: pointer; padding: 6px;
+  }
 
-    /* ── FAB ── */
-    #fab {
-      position: fixed;
-      right: calc(50% - 240px + 20px);
-      bottom: calc(var(--tab-h) + var(--safe-b) + 16px);
-      border-radius: 18px; background: var(--primary); border: none;
-      cursor: pointer; display: flex; align-items: center; gap: 8px;
-      padding: 14px 20px; font-family: 'DM Sans', sans-serif;
-      font-size: 15px; font-weight: 700; color: white;
-      box-shadow: 0 4px 20px rgba(232,112,74,.38);
-      transition: transform .15s, box-shadow .15s; z-index: 50;
-    }
-    #fab:hover  { transform: scale(1.03); }
-    #fab:active { transform: scale(.96); }
-    @media (max-width:480px) { #fab { right: 20px; } }
+  /* --- Settings modal --- */
+  .modal-backdrop {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 50;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .modal-backdrop.show { display: flex; }
 
-    /* ── TAB BAR ── */
-    .tab-bar {
-      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-      width: 100%; max-width: 480px;
-      height: calc(var(--tab-h) + var(--safe-b));
-      background: var(--surface); border-top: 1px solid var(--border);
-      display: flex; z-index: 100; padding-bottom: var(--safe-b);
-    }
-    .tab-btn {
-      flex: 1; background: none; border: none; cursor: pointer;
-      display: flex; flex-direction: column; align-items: center;
-      justify-content: center; gap: 3px; color: var(--muted2);
-      transition: color .2s; position: relative;
-      font-family: 'DM Sans', sans-serif;
-    }
-    .tab-btn.on { color: var(--primary); }
-    .tab-btn.on::before {
-      content: ''; position: absolute;
-      top: 0; left: 25%; right: 25%; height: 2.5px;
-      background: var(--primary); border-radius: 0 0 4px 4px;
-    }
-    .tab-icon  { font-size: 22px; line-height: 1; }
-    .tab-label { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+  .modal {
+    background: var(--bg-card-2);
+    border: 1px solid var(--border);
+    border-radius: 20px 20px 0 0;
+    padding: 22px 20px calc(24px + env(safe-area-inset-bottom));
+    width: 100%;
+    max-width: 480px;
+    animation: slide-up 0.2s ease-out;
+  }
+  @keyframes slide-up {
+    from { transform: translateY(24px); opacity: 0.6; }
+    to { transform: translateY(0); opacity: 1; }
+  }
 
-    /* ── MODAL ── */
-    .overlay {
-      position: fixed; inset: 0; background: rgba(44,24,16,.6);
-      z-index: 200; display: flex; align-items: flex-end; justify-content: center;
-      opacity: 0; pointer-events: none; transition: opacity .25s;
-    }
-    .overlay.open { opacity: 1; pointer-events: all; }
-    .sheet {
-      width: 100%; max-width: 480px; background: var(--bg);
-      border-radius: 24px 24px 0 0;
-      padding: 20px 20px calc(24px + var(--safe-b));
-      transform: translateY(100%);
-      transition: transform .3s cubic-bezier(.32,.72,0,1);
-      max-height: 90vh; overflow-y: auto;
-    }
-    .overlay.open .sheet { transform: translateY(0); }
-    .drag-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
-    .modal-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; }
-    .modal-ttl { font-family: 'Fraunces', serif; font-size: 24px; font-weight: 900; }
-    .modal-x {
-      background: var(--surface2); border: none; cursor: pointer;
-      width: 32px; height: 32px; border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      color: var(--muted); font-size: 18px; transition: background .2s;
-    }
-    .modal-x:hover { background: var(--border); }
+  .modal h2 { font-size: 16px; margin: 0 0 4px; }
+  .modal p.hint { font-size: 12px; color: var(--text-dim); margin: 0 0 18px; line-height: 1.5; }
 
-    .fg { margin-bottom: 18px; }
-    .fl {
-      font-size: 11px; font-weight: 700; color: var(--muted);
-      letter-spacing: .08em; text-transform: uppercase; margin-bottom: 8px; display: block;
-    }
-    .finput {
-      width: 100%; background: var(--surface); border: 1.5px solid var(--border);
-      border-radius: 12px; padding: 13px 15px; font-size: 16px;
-      color: var(--text); font-family: 'DM Sans', sans-serif;
-      outline: none; transition: border-color .2s, box-shadow .2s;
-      -webkit-appearance: none; appearance: none;
-    }
-    .finput:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-l); }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+  .field input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+  }
+  .field input:focus { outline: none; border-color: var(--accent); }
 
-    .plat-toggle { display: flex; gap: 8px; }
-    .ptbtn {
-      flex: 1; background: var(--surface2); border: 2px solid var(--border);
-      border-radius: 12px; padding: 12px; cursor: pointer;
-      font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 700;
-      color: var(--muted); transition: all .15s; text-align: center;
-    }
-    .ptbtn.on { background: var(--primary-l); border-color: var(--primary); color: var(--primary); }
+  .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+  .btn {
+    flex: 1;
+    padding: 13px;
+    border-radius: 12px;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-secondary { background: var(--bg-card); color: var(--text-dim); border: 1px solid var(--border); }
 
-    .qmin-row { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 10px; }
-    .qbtn {
-      background: var(--surface2); border: 2px solid var(--border);
-      border-radius: 10px; padding: 7px 13px; font-size: 13px;
-      font-weight: 700; cursor: pointer; color: var(--muted);
-      font-family: 'DM Sans', sans-serif; transition: all .15s;
-    }
-    .qbtn.on { background: var(--primary-l); border-color: var(--primary); color: var(--primary); }
-
-    .sbtn {
-      width: 100%; background: var(--primary); border: none;
-      border-radius: 14px; padding: 15px; font-size: 16px; font-weight: 700;
-      color: white; cursor: pointer; font-family: 'DM Sans', sans-serif;
-      transition: opacity .2s, transform .1s;
-      box-shadow: 0 4px 14px rgba(232,112,74,.3);
-    }
-    .sbtn:active { transform: scale(.98); }
-
-    /* ── STATS VIEW ── */
-    .stats-grid {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 10px; padding: 0 20px 16px;
-    }
-    .sbox {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 16px; padding: 16px;
-    }
-    .sbox-lbl { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 5px; }
-    .sbox-val { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 900; color: var(--text); }
-    .sbox-val.good { color: var(--green); }
-    .sbox-val.bad  { color: var(--primary); }
-
-    .chart-wrap { margin: 0 20px 16px; }
-    .chart-lbl { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
-
-    .session-item {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 0; border-bottom: 1px solid var(--border);
-    }
-    .session-item:last-child { border-bottom: none; }
-    .si-left { display: flex; align-items: center; gap: 10px; }
-    .si-name { font-size: 14px; font-weight: 700; }
-    .si-date { font-size: 12px; color: var(--muted); }
-    .si-mins { font-family: 'Fraunces', serif; font-size: 16px; font-weight: 700; color: var(--primary); }
-
-    /* ── HOUSE VIEW ── */
-    .house-wrap {
-      margin: 0 20px 14px;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 20px; overflow: hidden;
-    }
-    .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 20px 16px; }
-    .shop-item {
-      background: var(--surface); border: 2px solid var(--border);
-      border-radius: 16px; padding: 14px; text-align: center;
-      cursor: pointer; transition: all .15s;
-      user-select: none;
-    }
-    .shop-item:active { transform: scale(.97); }
-    .shop-item.can   { border-color: var(--primary); background: var(--primary-l); }
-    .shop-item.owned { border-color: var(--green);   background: var(--green-l);   cursor: default; }
-    .si-icon { font-size: 30px; margin-bottom: 5px; }
-    .si-nm   { font-size: 14px; font-weight: 700; }
-    .si-cost { font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 2px; }
-    .shop-item.owned .si-cost { color: var(--green); }
-
-    /* ── SETTINGS ── */
-    .lim-display {
-      text-align: center; font-family: 'Fraunces', serif;
-      font-size: 36px; font-weight: 900; color: var(--primary); margin: 6px 0 10px;
-    }
-    .lim-display span { font-size: 16px; color: var(--muted); font-family: 'DM Sans', sans-serif; font-weight: 500; }
-    input[type=range] { width: 100%; accent-color: var(--primary); cursor: pointer; }
-
-    /* ── EMPTY ── */
-    .empty { text-align: center; padding: 28px; color: var(--muted); }
-    .empty-icon { font-size: 38px; margin-bottom: 8px; }
-    .empty-txt  { font-size: 14px; font-weight: 600; color: var(--muted2); }
-
-    /* ── TOAST ── */
-    .toast {
-      position: fixed; top: calc(var(--safe-t) + 16px);
-      left: 50%; transform: translateX(-50%) translateY(-90px);
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 14px; padding: 12px 20px;
-      font-size: 14px; font-weight: 600; color: var(--text);
-      z-index: 500; white-space: nowrap;
-      box-shadow: 0 8px 28px rgba(44,24,16,.13);
-      transition: transform .3s cubic-bezier(.32,.72,0,1);
-    }
-    .toast.show { transform: translateX(-50%) translateY(0); }
-
-    ::-webkit-scrollbar { width: 3px; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-    /* ── SCAN MODAL ── */
-    .upload-zone {
-      border: 2px dashed var(--border); border-radius: 16px;
-      padding: 28px 16px; text-align: center; cursor: pointer;
-      transition: border-color .2s, background .2s; background: var(--surface2);
-      position: relative;
-    }
-    .upload-zone:hover, .upload-zone.drag { border-color: var(--primary); background: var(--primary-l); }
-    .upload-zone input { position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%; }
-    .upload-icon { font-size: 36px; margin-bottom: 8px; }
-    .upload-lbl  { font-size: 14px; font-weight: 700; color: var(--muted); }
-    .upload-sub  { font-size: 12px; color: var(--muted2); margin-top: 3px; }
-
-    #scan-preview {
-      width: 100%; border-radius: 12px; margin: 12px 0 4px;
-      max-height: 180px; object-fit: cover; display: none;
-      border: 1px solid var(--border);
-    }
-
-    .scan-result {
-      background: var(--surface2); border-radius: 14px;
-      padding: 14px; margin-top: 12px;
-    }
-    .scan-result-lbl {
-      font-size: 11px; font-weight: 700; color: var(--muted);
-      text-transform: uppercase; letter-spacing: .07em; margin-bottom: 10px;
-    }
-    .scan-row {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 8px 0; border-bottom: 1px solid var(--border);
-    }
-    .scan-row:last-child { border-bottom: none; }
-    .scan-row-left { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; }
-    .scan-edit {
-      width: 64px; text-align: center;
-      background: var(--surface); border: 1.5px solid var(--border);
-      border-radius: 8px; padding: 6px 8px; font-size: 15px;
-      font-family: 'Fraunces', serif; font-weight: 700; color: var(--text);
-      outline: none;
-    }
-    .scan-edit:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-l); }
-    .scan-unit { font-size: 12px; color: var(--muted); font-weight: 600; }
-
-    .scanning-spinner {
-      display: none; align-items: center; gap: 10px;
-      padding: 16px; justify-content: center; color: var(--muted);
-      font-size: 14px; font-weight: 600;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spinner-ring {
-      width: 20px; height: 20px; border: 2.5px solid var(--border);
-      border-top-color: var(--primary); border-radius: 50%;
-      animation: spin .7s linear infinite; flex-shrink: 0;
-    }
-  </style>
+  .modal-status { font-size: 12px; margin-top: 10px; min-height: 16px; }
+  .modal-status.ok { color: var(--green); }
+  .modal-status.err { color: var(--red); }
+</style>
 </head>
 <body>
-<div id="app">
 
-  <!-- ╔═══════════════╗ -->
-  <!-- ║  TAB: HEUTE   ║ -->
-  <!-- ╚═══════════════╝ -->
-  <div id="view-heute" class="view active">
-    <div class="page-header">
-      <div>
-        <div class="page-title" id="greeting">Hey, <span>Beano</span>! 👋</div>
-        <div class="page-sub" id="heute-sub">Kein Tracking heute</div>
-      </div>
-      <div class="points-badge" id="pts-main">⭐ 0</div>
-    </div>
+<div class="container">
 
-    <!-- Daily progress -->
-    <div class="card">
-      <div class="limit-header">
-        <span class="card-label" style="margin:0">📱 Tageslimit</span>
-        <span class="limit-nums">
-          <span id="used-lbl">0 Min</span>
-          <span class="sep">/</span>
-          <span class="max" id="lim-lbl">60 Min</span>
-        </span>
-      </div>
-      <div class="prog-bg"><div class="prog-fill" id="prog" style="width:0%"></div></div>
-      <div class="plat-row">
-        <div class="plat-chip">
-          <div class="plat-dot" style="background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)"></div>
-          <span class="plat-name">Instagram</span>
-          <span class="plat-time" id="chip-ig">0m</span>
-        </div>
-        <div class="plat-chip">
-          <div class="plat-dot" style="background:#010101;border:1px solid #555"></div>
-          <span class="plat-name">TikTok</span>
-          <span class="plat-time" id="chip-tt">0m</span>
-        </div>
-      </div>
+  <header>
+    <div class="header-title">
+      <span class="status-dot loading" id="statusDot"></span>
+      <h1>Trading Dashboard</h1>
     </div>
-
-    <!-- Focus Timer -->
-    <div class="card">
-      <div class="card-label">🎯 Fokus-Timer</div>
-      <div class="timer-num" id="timer-disp">25:00</div>
-      <div class="dur-pills">
-        <button class="dur-pill" data-m="5">5 Min</button>
-        <button class="dur-pill on" data-m="25">25 Min</button>
-        <button class="dur-pill" data-m="45">45 Min</button>
-        <button class="dur-pill" data-m="60">60 Min</button>
-      </div>
-      <div class="timer-btns">
-        <button class="tbtn go"  id="tbtn-go">▶ Starten</button>
-        <button class="tbtn rst" id="tbtn-rst">↺ Reset</button>
-      </div>
-    </div>
-
-    <!-- Settings + Scan buttons -->
-    <div style="padding:0 20px 4px;display:flex;justify-content:flex-end;gap:8px;">
-      <button id="btn-scan" style="background:var(--primary-l);border:1px solid var(--primary);border-radius:12px;padding:8px 14px;font-size:13px;font-weight:700;color:var(--primary);cursor:pointer;font-family:'DM Sans',sans-serif;">📸 Screenshot scannen</button>
-      <button id="btn-settings" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:8px 14px;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;">⚙️ Einstellungen</button>
-    </div>
-  </div>
-
-  <!-- ╔════════════════╗ -->
-  <!-- ║  TAB: VERLAUF  ║ -->
-  <!-- ╚════════════════╝ -->
-  <div id="view-verlauf" class="view">
-    <div class="page-header">
-      <div>
-        <div class="page-title">Verlauf <span>📊</span></div>
-        <div class="page-sub">Deine letzte Woche</div>
-      </div>
-    </div>
-    <div class="stats-grid" id="stats-grid"></div>
-    <div class="chart-wrap">
-      <div class="chart-lbl">Letzte 7 Tage — Minuten pro Tag</div>
-      <svg id="chart" viewBox="0 0 320 150" style="width:100%;display:block;"></svg>
-    </div>
-    <div class="card" style="margin-top:0;">
-      <div class="card-label">Letzte Einträge</div>
-      <div id="sess-list"></div>
-    </div>
-  </div>
-
-  <!-- ╔══════════════════╗ -->
-  <!-- ║  TAB: BOHNENHAUS ║ -->
-  <!-- ╚══════════════════╝ -->
-  <div id="view-haus" class="view">
-    <div class="page-header">
-      <div>
-        <div class="page-title">Bohnenhaus <span>🏠</span></div>
-        <div class="page-sub" id="house-sub">Verdiene Punkte &amp; richte ein!</div>
-      </div>
-      <div class="points-badge" id="pts-haus">⭐ 0</div>
-    </div>
-    <div class="house-wrap">
-      <svg id="house-svg" viewBox="0 0 320 230" style="width:100%;display:block;"></svg>
-    </div>
-    <div style="padding:0 20px 10px;">
-      <div class="card-label">🛍️ Shop — Möbel kaufen</div>
-    </div>
-    <div class="shop-grid" id="shop-grid"></div>
-  </div>
-
-  <!-- FAB -->
-  <button id="fab">📱 Session loggen</button>
-
-  <!-- TAB BAR -->
-  <nav class="tab-bar">
-    <button class="tab-btn on" data-t="heute"><span class="tab-icon">🏠</span><span class="tab-label">Heute</span></button>
-    <button class="tab-btn"    data-t="verlauf"><span class="tab-icon">📊</span><span class="tab-label">Verlauf</span></button>
-    <button class="tab-btn"    data-t="haus"><span class="tab-icon">🫘</span><span class="tab-label">Bohnenhaus</span></button>
-  </nav>
-</div>
-
-<!-- ═══ MODAL: SESSION LOGGEN ═══ -->
-<div id="m-log" class="overlay">
-  <div class="sheet">
-    <div class="drag-handle"></div>
-    <div class="modal-hdr">
-      <h2 class="modal-ttl">Session loggen</h2>
-      <button class="modal-x" data-c="m-log">✕</button>
-    </div>
-    <div class="fg">
-      <label class="fl">Plattform</label>
-      <div class="plat-toggle">
-        <button class="ptbtn on" data-p="instagram">📸 Instagram</button>
-        <button class="ptbtn"    data-p="tiktok">🎵 TikTok</button>
-      </div>
-    </div>
-    <div class="fg">
-      <label class="fl">Wie lange? (Minuten)</label>
-      <div class="qmin-row">
-        <button class="qbtn" data-q="5">5</button>
-        <button class="qbtn" data-q="10">10</button>
-        <button class="qbtn" data-q="15">15</button>
-        <button class="qbtn" data-q="20">20</button>
-        <button class="qbtn" data-q="30">30</button>
-        <button class="qbtn" data-q="45">45</button>
-        <button class="qbtn" data-q="60">60</button>
-      </div>
-      <input id="inp-min" class="finput" type="number" inputmode="numeric" min="1" max="480" placeholder="Oder selbst eingeben …">
-    </div>
-    <button class="sbtn" id="log-save">✓ Speichern (+1 Punkt)</button>
-  </div>
-</div>
-
-<!-- ═══ MODAL: EINSTELLUNGEN ═══ -->
-<div id="m-set" class="overlay">
-  <div class="sheet">
-    <div class="drag-handle"></div>
-    <div class="modal-hdr">
-      <h2 class="modal-ttl">Einstellungen</h2>
-      <button class="modal-x" data-c="m-set">✕</button>
-    </div>
-    <div class="fg">
-      <label class="fl">Bohnenname</label>
-      <input id="s-name" class="finput" type="text" placeholder="z.B. Beano">
-    </div>
-    <div class="fg">
-      <label class="fl">Tägliches Social-Media-Limit</label>
-      <div class="lim-display" id="lim-disp">60 <span>Min/Tag</span></div>
-      <input id="s-lim" type="range" min="10" max="180" step="5" value="60">
-    </div>
-    <button class="sbtn" id="set-save">Speichern</button>
-  </div>
-</div>
-
-<!-- ═══ MODAL: SCREENSHOT SCANNEN ═══ -->
-<div id="m-scan" class="overlay">
-  <div class="sheet">
-    <div class="drag-handle"></div>
-    <div class="modal-hdr">
-      <h2 class="modal-ttl">📸 Screenshot scannen</h2>
-      <button class="modal-x" data-c="m-scan">✕</button>
-    </div>
-
-    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5;">
-      Mach einen Screenshot deiner <strong>iOS Bildschirmzeit</strong> oder <strong>Android Digital Wellbeing</strong> und lade ihn hier hoch. Claude liest die Minuten automatisch aus.
-    </p>
-
-    <div class="fg">
-      <div class="upload-zone" id="upload-zone">
-        <input type="file" id="scan-file" accept="image/*">
-        <div class="upload-icon">🖼️</div>
-        <div class="upload-lbl">Screenshot auswählen</div>
-        <div class="upload-sub">JPG, PNG — tap to open photos</div>
-      </div>
-      <img id="scan-preview" alt="Vorschau">
-    </div>
-
-    <div class="scanning-spinner" id="scanning-spinner">
-      <div class="spinner-ring"></div>
-      Claude analysiert den Screenshot …
-    </div>
-
-    <div class="scan-result" id="scan-result">
-      <div class="scan-result-lbl">📊 Erkannte Werte — bitte prüfen &amp; ggf. korrigieren</div>
-      <div id="scan-rows"></div>
-    </div>
-
-    <button class="sbtn" id="scan-import" style="display:none;margin-top:14px;">
-      ✓ Werte importieren
+    <button class="icon-btn" id="settingsBtn" aria-label="Einstellungen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      </svg>
     </button>
+  </header>
+
+  <div class="banner" id="connBanner"></div>
+
+  <!-- Konto-Karte -->
+  <div class="card">
+    <span class="mode-badge paper" id="modeBadge">–</span>
+    <div class="equity-value" id="equityValue">–</div>
+    <div class="pl-row" id="plRow">
+      <span class="arrow"></span>
+      <span id="plDollar">–</span>
+      <span id="plPercent"></span>
+      <span style="color:var(--text-dim); font-weight:400;">heute</span>
+    </div>
+    <div class="sub-stats">
+      <div class="sub-stat">
+        <div class="label">Cash</div>
+        <div class="value" id="cashValue">–</div>
+      </div>
+      <div class="sub-stat">
+        <div class="label">Kaufkraft</div>
+        <div class="value" id="bpValue">–</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Kontostand-Verlauf -->
+  <div class="section-title">Kontostand-Verlauf</div>
+  <div class="card" id="equityCard">
+    <div class="period-switcher" id="periodSwitcher">
+      <button class="period-btn" data-period="1w">1W</button>
+      <button class="period-btn" data-period="1m">1M</button>
+      <button class="period-btn" data-period="3m">3M</button>
+      <button class="period-btn active" data-period="all">Alles</button>
+    </div>
+    <div class="equity-stats" id="equityStats">
+      <div class="equity-stat">
+        <div class="label">Kontostand</div>
+        <div class="value" id="eqCurrent">–</div>
+      </div>
+      <div class="equity-stat">
+        <div class="label">P&amp;L im Zeitraum</div>
+        <div class="value" id="eqPl">–</div>
+      </div>
+      <div class="equity-stat">
+        <div class="label">Bester Tag</div>
+        <div class="value" id="eqBestDay">–</div>
+      </div>
+      <div class="equity-stat">
+        <div class="label">Schlechtester Tag</div>
+        <div class="value" id="eqWorstDay">–</div>
+      </div>
+      <div class="equity-stat">
+        <div class="value wide" id="eqDrawdown">–</div>
+        <div class="label" style="margin-top:3px;">Max. Drawdown im Zeitraum</div>
+      </div>
+    </div>
+    <div class="chart-wrap" id="chartWrap">
+      <canvas id="equityChart"></canvas>
+    </div>
+    <div class="chart-message" id="equityMessage"></div>
+  </div>
+
+  <!-- Positionen -->
+  <div class="section-title">Offene Positionen</div>
+  <div class="card" id="positionsCard">
+    <div class="empty-hint" id="positionsEmpty">Keine offenen Positionen</div>
+    <div id="positionsList"></div>
+  </div>
+
+  <!-- Trades -->
+  <div class="section-title">Letzte Trades</div>
+  <div class="card" id="tradesCard">
+    <div class="empty-hint" id="tradesEmpty">Noch keine Trades</div>
+    <div id="tradesList"></div>
+  </div>
+
+  <footer>
+    <div id="lastUpdated">Noch keine Daten geladen</div>
+    <button id="refreshBtn">Jetzt aktualisieren</button>
+  </footer>
+
+</div>
+
+<!-- Einstellungen-Modal -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <h2>Einstellungen</h2>
+    <p class="hint">Adresse und Token deines Raspberry-Pi-Dashboard-Servers (siehe README des Bots). Wird nur lokal auf diesem Geraet gespeichert.</p>
+    <div class="field">
+      <label for="apiUrlInput">Server-Adresse</label>
+      <input type="text" id="apiUrlInput" placeholder="z.B. http://100.x.x.x:5000" autocapitalize="off" autocorrect="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="tokenInput">Dashboard-Token</label>
+      <input type="text" id="tokenInput" placeholder="aus dashboard_token.txt auf dem Pi" autocapitalize="off" autocorrect="off" spellcheck="false">
+    </div>
+    <div class="modal-status" id="modalStatus"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="modalCancel">Abbrechen</button>
+      <button class="btn btn-primary" id="modalSave">Speichern</button>
+    </div>
   </div>
 </div>
 
-<!-- TOAST -->
-<div id="toast" class="toast"></div>
-
+<!-- Lokal abgelegt statt CDN (chart.umd.min.js, Chart.js 4.6.1) -- die
+     Seite soll auch ohne Abhaengigkeit von einem externen CDN laufen,
+     siehe README fuer die Herkunft der Datei. -->
+<script src="./chart.umd.min.js"></script>
 <script>
-/* ════════════════════════════════
-   DATA
-════════════════════════════════ */
-const DB = {
-  K: 'beanfocus_v2',
-  def() {
-    return {
-      sessions: [],
-      settings: { limit: 60, name: 'Beano' },
-      points: 0,
-      unlocked: [],
-      checkedDate: null
-    };
-  },
-  get() {
-    try { return JSON.parse(localStorage.getItem(this.K)) || this.def(); }
-    catch { return this.def(); }
-  },
-  save(d) { localStorage.setItem(this.K, JSON.stringify(d)); }
-};
+(function () {
+  "use strict";
 
-/* ════════════════════════════════
-   SHOP CATALOGUE
-════════════════════════════════ */
-const SHOP = [
-  { id:'rug',    name:'Teppich',   icon:'🪆', cost:15 },
-  { id:'plant',  name:'Pflanze',   icon:'🌿', cost:20 },
-  { id:'lamp',   name:'Lampe',     icon:'🕯️', cost:25 },
-  { id:'window', name:'Fenster',   icon:'🪟', cost:30 },
-  { id:'shelf',  name:'Regal',     icon:'📚', cost:35 },
-  { id:'sofa',   name:'Sofa',      icon:'🛋️', cost:50 },
-  { id:'bed',    name:'Bett',      icon:'🛏️', cost:60 },
-  { id:'tv',     name:'Fernseher', icon:'📺', cost:80 },
-];
+  const STORAGE_KEY = "tradingDashboardConfig";
+  const REFRESH_MS = 30000;
+  const FETCH_TIMEOUT_MS = 8000;
+  // Kontostand-Verlauf aendert sich nicht minuetlich und wird serverseitig
+  // ohnehin 5 Minuten gecacht (siehe api_server.py) -- ein eigenes, selteneres
+  // Intervall statt am 30s-Status-Poll mitzuhaengen, spart unnoetige
+  // Chart-Neuzeichnungen auf dem Handy.
+  const EQUITY_REFRESH_MS = 5 * 60 * 1000;
+  const DEFAULT_EQUITY_PERIOD = "all";
 
-/* ════════════════════════════════
-   UTILS
-════════════════════════════════ */
-const tod = () => new Date().toISOString().split('T')[0];
-const pad = n => n < 10 ? '0'+n : ''+n;
-const fmtM = m => m < 60 ? m+'m' : Math.floor(m/60)+'h'+(m%60?` ${m%60}m`:'');
-const fmtD = iso => { const [,m,d]=iso.split('-'); return `${d}.${m}.`; };
-const dBack = n => { const x=new Date(); x.setDate(x.getDate()-n); return x.toISOString().split('T')[0]; };
+  const el = (id) => document.getElementById(id);
+  const dot = el("statusDot");
+  const banner = el("connBanner");
 
-let _tTimer;
-function toast(msg) {
-  const el=document.getElementById('toast');
-  el.textContent=msg; el.classList.add('show');
-  clearTimeout(_tTimer);
-  _tTimer=setTimeout(()=>el.classList.remove('show'),2800);
-}
+  let lastGoodData = null;
+  let refreshTimer = null;
+  let equityRefreshTimer = null;
+  let equityChart = null;
+  let currentEquityPeriod = DEFAULT_EQUITY_PERIOD;
 
-/* ════════════════════════════════
-   DAILY REWARD
-════════════════════════════════ */
-function dailyReward() {
-  const d=DB.get(), t=tod();
-  if (d.checkedDate===t) return;
-  const yest=dBack(1);
-  const ySess=d.sessions.filter(s=>s.date===yest);
-  if (ySess.length>0) {
-    const tot=ySess.reduce((s,x)=>s+x.minutes,0);
-    if (tot<=d.settings.limit) {
-      const pts=tot<=d.settings.limit*.5?15:10;
-      d.points+=pts;
-      setTimeout(()=>toast(`🎉 Gestern unter Limit! +${pts} Punkte`),600);
+  // ---------- Konfiguration (localStorage) ----------
+  function loadConfig() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
     }
   }
-  d.checkedDate=t; DB.save(d);
-}
 
-/* ════════════════════════════════
-   RENDER: HEUTE
-════════════════════════════════ */
-function renderHeute() {
-  const d=DB.get(), t=tod();
-  const ts=d.sessions.filter(s=>s.date===t);
-  const tot=ts.reduce((s,x)=>s+x.minutes,0);
-  const ig=ts.filter(s=>s.platform==='instagram').reduce((s,x)=>s+x.minutes,0);
-  const tt=ts.filter(s=>s.platform==='tiktok').reduce((s,x)=>s+x.minutes,0);
-  const lim=d.settings.limit, pct=Math.min(100, Math.round(tot/lim*100));
+  function saveConfig(cfg) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+  }
 
-  document.querySelector('#greeting span').textContent=d.settings.name+'!';
-  document.getElementById('heute-sub').textContent=
-    tot===0?'Noch kein Tracking heute':`Heute ${fmtM(tot)} auf Social Media`;
-  document.getElementById('pts-main').textContent='⭐ '+d.points;
-  document.getElementById('used-lbl').textContent=fmtM(tot);
-  document.getElementById('lim-lbl').textContent=fmtM(lim);
-  document.getElementById('chip-ig').textContent=fmtM(ig);
-  document.getElementById('chip-tt').textContent=fmtM(tt);
+  function hasConfig() {
+    const cfg = loadConfig();
+    return !!(cfg && cfg.apiUrl && cfg.token);
+  }
 
-  const p=document.getElementById('prog');
-  p.style.width=pct+'%';
-  p.className='prog-fill'+(pct>=100?' over':pct>=75?' warn':'');
-}
+  // ---------- Formatierung ----------
+  const currencyFmt = new Intl.NumberFormat("de-DE", { style: "currency", currency: "USD" });
+  const numberFmt = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-/* ════════════════════════════════
-   RENDER: VERLAUF
-════════════════════════════════ */
-function renderVerlauf() {
-  const d=DB.get();
-  const lim=d.settings.limit;
-  const last7=Array.from({length:7},(_,i)=>dBack(i));
-  const days=last7.map(dt=>({ date:dt, tot:d.sessions.filter(s=>s.date===dt).reduce((s,x)=>s+x.minutes,0) }));
-  const withData=days.filter(x=>x.tot>0);
-  const avg=withData.length?Math.round(withData.reduce((s,x)=>s+x.tot,0)/withData.length):0;
-  const best=withData.length?Math.min(...withData.map(x=>x.tot)):0;
-  const allTot=d.sessions.reduce((s,x)=>s+x.minutes,0);
-  const daysUnder=withData.filter(x=>x.tot<=lim).length;
+  function formatCurrency(value) {
+    return currencyFmt.format(value);
+  }
 
-  document.getElementById('stats-grid').innerHTML=`
-    <div class="sbox"><div class="sbox-lbl">Ø täglich (7T)</div><div class="sbox-val ${avg<=lim?'good':'bad'}">${fmtM(avg)}</div></div>
-    <div class="sbox"><div class="sbox-lbl">Bester Tag</div><div class="sbox-val good">${best?fmtM(best):'—'}</div></div>
-    <div class="sbox"><div class="sbox-lbl">Gesamt</div><div class="sbox-val">${fmtM(allTot)}</div></div>
-    <div class="sbox"><div class="sbox-lbl">Tage unter Limit</div><div class="sbox-val good">${daysUnder}<span style="font-size:13px;color:var(--muted);font-family:'DM Sans',sans-serif;font-weight:500;">/7</span></div></div>
-  `;
+  function formatSignedCurrency(value) {
+    const sign = value > 0 ? "+" : value < 0 ? "" : "±";
+    return sign + currencyFmt.format(value);
+  }
 
-  // SVG chart
-  const W=320,H=150,PL=28,PR=12,PT=16,PB=22;
-  const IH=H-PT-PB, IW=W-PL-PR;
-  const rev=[...days].reverse();
-  const maxV=Math.max(...rev.map(x=>x.tot),lim,5);
-  const bW=28, gap=(IW-bW*7)/6;
-  const bars=rev.map((x,i)=>{
-    const bx=PL+i*(bW+gap);
-    const bh=Math.max(3,Math.round(x.tot/maxV*IH));
-    const by=PT+IH-bh;
-    const col=x.tot===0?'#E8D9CC':x.tot<=lim?'#5B9B47':'#E8704A';
-    return `
-      <rect x="${bx}" y="${by}" width="${bW}" height="${bh}" rx="5" fill="${col}"/>
-      <text x="${bx+bW/2}" y="${H-5}" text-anchor="middle" font-size="9" fill="#8C7060" font-family="DM Sans,sans-serif" font-weight="600">${fmtD(x.date)}</text>
-      ${x.tot>0?`<text x="${bx+bW/2}" y="${by-4}" text-anchor="middle" font-size="9" fill="${col}" font-family="DM Sans,sans-serif" font-weight="700">${x.tot}</text>`:''}
-    `;
-  }).join('');
-  const limY=PT+IH-Math.round(lim/maxV*IH);
-  document.getElementById('chart').innerHTML=bars+`
-    <line x1="${PL}" y1="${limY}" x2="${W-PR}" y2="${limY}" stroke="#E8704A" stroke-width="1.5" stroke-dasharray="4,3" opacity=".5"/>
-    <text x="${W-PR+2}" y="${limY+4}" font-size="9" fill="#E8704A" font-family="DM Sans,sans-serif" opacity=".8">Limit</text>
-  `;
+  function formatSignedPercent(value) {
+    const sign = value > 0 ? "+" : value < 0 ? "" : "±";
+    return `(${sign}${numberFmt.format(value)} %)`;
+  }
 
-  // Session list
-  const recent=[...d.sessions].sort((a,b)=>b.created_at.localeCompare(a.created_at)).slice(0,12);
-  document.getElementById('sess-list').innerHTML=recent.length===0
-    ? `<div class="empty"><div class="empty-icon">📭</div><div class="empty-txt">Noch keine Sessions</div></div>`
-    : recent.map(s=>`
-      <div class="session-item">
-        <div class="si-left">
-          <span style="font-size:20px">${s.platform==='instagram'?'📸':'🎵'}</span>
+  function plClass(value) {
+    if (value > 0) return "positive";
+    if (value < 0) return "negative";
+    return "neutral";
+  }
+
+  function formatTimestamp(iso) {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    } catch (e) {
+      return iso;
+    }
+  }
+
+  // "2026-10-21" -> "21.10." (deutsches Kurzformat, Anforderung 1). Reines
+  // Stringparsing statt new Date(...) -- das Backend liefert das Datum
+  // bereits als Europe/Berlin-Kalendertag (siehe api_server.py), hier noch
+  // einmal durch eine Date/Timezone-Umrechnung zu schicken koennte je nach
+  // Geraete-Zeitzone den Tag wieder verschieben.
+  function formatShortDateDE(dateStr) {
+    const parts = dateStr.split("-");
+    if (parts.length !== 3) return dateStr;
+    return `${parts[2]}.${parts[1]}.`;
+  }
+
+  // ---------- Rendering ----------
+  function renderAccount(data) {
+    const badge = el("modeBadge");
+    badge.textContent = data.mode === "live" ? "Live" : "Paper";
+    badge.className = "mode-badge " + (data.mode === "live" ? "live" : "paper");
+
+    el("equityValue").textContent = formatCurrency(data.account.equity);
+    el("cashValue").textContent = formatCurrency(data.account.cash);
+    el("bpValue").textContent = formatCurrency(data.account.buying_power);
+
+    const plDollar = data.account.day_pl_dollar;
+    const plPercent = data.account.day_pl_percent;
+    const cls = plClass(plDollar);
+    const plRow = el("plRow");
+    plRow.querySelector(".arrow").textContent = plDollar > 0 ? "▲" : plDollar < 0 ? "▼" : "•";
+    plRow.querySelector(".arrow").className = "arrow " + cls;
+    const plDollarEl = el("plDollar");
+    plDollarEl.textContent = formatSignedCurrency(plDollar);
+    plDollarEl.className = cls;
+    const plPercentEl = el("plPercent");
+    plPercentEl.textContent = formatSignedPercent(plPercent);
+    plPercentEl.className = cls;
+  }
+
+  function renderPositions(positions) {
+    const list = el("positionsList");
+    const empty = el("positionsEmpty");
+    list.innerHTML = "";
+
+    if (!positions || positions.length === 0) {
+      empty.style.display = "block";
+      return;
+    }
+    empty.style.display = "none";
+
+    positions.forEach((p) => {
+      const row = document.createElement("div");
+      row.className = "position-row";
+      const cls = plClass(p.unrealized_pl);
+      row.innerHTML = `
+        <div class="row-left">
+          <div class="symbol">${escapeHtml(p.symbol)}</div>
+          <div class="row-sub">${numberFmt.format(p.qty)} Stk. @ ${formatCurrency(p.avg_entry_price)}</div>
+        </div>
+        <div class="row-right">
+          <div class="main-value ${cls}">${formatSignedCurrency(p.unrealized_pl)}</div>
+          <div class="sub-value ${cls}">${formatSignedPercent(p.unrealized_pl_percent)}</div>
+        </div>`;
+      list.appendChild(row);
+    });
+  }
+
+  function renderTrades(trades) {
+    const list = el("tradesList");
+    const empty = el("tradesEmpty");
+    list.innerHTML = "";
+
+    if (!trades || trades.length === 0) {
+      empty.style.display = "block";
+      return;
+    }
+    empty.style.display = "none";
+
+    trades.forEach((t) => {
+      const row = document.createElement("div");
+      row.className = "trade-row";
+      const isBuy = t.action === "BUY";
+      row.innerHTML = `
+        <div class="row-left">
           <div>
-            <div class="si-name">${s.platform==='instagram'?'Instagram':'TikTok'}</div>
-            <div class="si-date">${fmtD(s.date)}</div>
+            <span class="badge ${isBuy ? "buy" : "sell"}">${isBuy ? "BUY" : "SELL"}</span>
+            <span class="symbol">${escapeHtml(t.symbol)}</span>
           </div>
+          <div class="trade-reason">${escapeHtml(t.reason || "")}</div>
         </div>
-        <div class="si-mins">${s.minutes}m</div>
-      </div>`).join('');
-}
+        <div class="row-right">
+          <div class="main-value">${formatCurrency(t.price)}</div>
+          <div class="sub-value" style="color:var(--text-dim)">${formatTimestamp(t.timestamp)}</div>
+        </div>`;
+      list.appendChild(row);
+    });
+  }
 
-/* ════════════════════════════════
-   RENDER: BOHNENHAUS
-════════════════════════════════ */
-function renderHaus() {
-  const d=DB.get(), u=id=>d.unlocked.includes(id);
+  function escapeHtml(str) {
+    const d = document.createElement("div");
+    d.textContent = str;
+    return d.innerHTML;
+  }
 
-  document.getElementById('pts-haus').textContent='⭐ '+d.points;
-  document.getElementById('house-sub').textContent=
-    `${d.unlocked.length}/${SHOP.length} Möbel freigeschaltet`;
+  // ---------- Verbindungsstatus ----------
+  function setStatus(state, message) {
+    // state: "ok" | "loading" | "error"
+    dot.className = "status-dot" + (state === "ok" ? "" : state === "loading" ? " loading" : " offline");
 
-  // Draw room
-  const beanX=u('sofa')?118:130, beanY=u('sofa')?96:118;
-  document.getElementById('house-svg').innerHTML=`
-    <!-- Room -->
-    <rect width="320" height="230" fill="#FFF8F0"/>
-    <rect y="170" width="320" height="60" fill="#E8C9A0"/>
-    <line x1="0" y1="170" x2="320" y2="170" stroke="#D4A870" stroke-width="2"/>
-    <rect y="163" width="320" height="8" fill="#E4BC80"/>
+    if (state === "ok") {
+      banner.className = "banner";
+      banner.textContent = "";
+      return;
+    }
+    banner.className = "banner show" + (state === "loading" ? " setup" : "");
+    banner.textContent = message;
+  }
 
-    <!-- WINDOW -->
-    ${u('window')?`
-      <rect x="118" y="22" width="84" height="76" rx="5" fill="#AED6F1" stroke="#8BB4D0" stroke-width="2"/>
-      <line x1="160" y1="22" x2="160" y2="98" stroke="#8BB4D0" stroke-width="1.5"/>
-      <line x1="118" y1="60" x2="202" y2="60" stroke="#8BB4D0" stroke-width="1.5"/>
-      <path d="M108,20 Q120,55 113,98" fill="#E8A87C" opacity=".75"/>
-      <path d="M212,20 Q200,55 207,98" fill="#E8A87C" opacity=".75"/>
-    `:`<rect x="118" y="22" width="84" height="76" rx="5" fill="#EEE" stroke="#DDD" stroke-width="1" stroke-dasharray="5,3" opacity=".6"/>`}
+  function setLastUpdated(text) {
+    el("lastUpdated").textContent = text;
+  }
 
-    <!-- RUG -->
-    ${u('rug')?`
-      <ellipse cx="160" cy="197" rx="95" ry="20" fill="#C0876A" opacity=".45"/>
-      <ellipse cx="160" cy="197" rx="78" ry="14" fill="#D4957A" opacity=".45"/>
-      <ellipse cx="160" cy="197" rx="56" ry="9" fill="#E8A88A" opacity=".38"/>
-    `:''}
+  // ---------- Datenabruf ----------
+  async function fetchStatus() {
+    if (!hasConfig()) {
+      setStatus("error", "⚙️ Noch nicht eingerichtet — bitte Server-Adresse und Token in den Einstellungen eintragen.");
+      setLastUpdated("Nicht konfiguriert");
+      return;
+    }
 
-    <!-- SHELF -->
-    ${u('shelf')?`
-      <rect x="10" y="58" width="72" height="9" rx="3" fill="#C8A878"/>
-      <rect x="10" y="67" width="6" height="28" rx="2" fill="#B89060"/>
-      <rect x="76" y="67" width="6" height="28" rx="2" fill="#B89060"/>
-      <rect x="14" y="48" width="9" height="20" rx="2" fill="#E74C3C"/>
-      <rect x="25" y="52" width="8" height="16" rx="2" fill="#3498DB"/>
-      <rect x="35" y="46" width="10" height="22" rx="2" fill="#27AE60"/>
-      <rect x="47" y="50" width="8" height="18" rx="2" fill="#F39C12"/>
-      <rect x="57" y="48" width="9" height="20" rx="2" fill="#9B59B6"/>
-    `:''}
+    const cfg = loadConfig();
+    const url = cfg.apiUrl.replace(/\/+$/, "") + "/api/status";
 
-    <!-- TV -->
-    ${u('tv')?`
-      <rect x="240" y="102" width="66" height="46" rx="5" fill="#2C3E50" stroke="#1A252F" stroke-width="1.5"/>
-      <rect x="244" y="106" width="58" height="36" rx="3" fill="#1ABC9C" opacity=".65"/>
-      <rect x="247" y="109" width="24" height="26" rx="2" fill="#16A085" opacity=".55"/>
-      <rect x="275" y="109" width="24" height="26" rx="2" fill="#16A085" opacity=".55"/>
-      <rect x="266" y="148" width="7" height="11" rx="2" fill="#2C3E50"/>
-      <rect x="258" y="157" width="24" height="4" rx="2" fill="#2C3E50"/>
-    `:''}
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
-    <!-- LAMP -->
-    ${u('lamp')?`
-      <rect x="270" y="94" width="6" height="76" rx="3" fill="#C8A878"/>
-      <ellipse cx="273" cy="173" rx="18" ry="6" fill="#B89060"/>
-      <path d="M256,94 Q273,64 290,94Z" fill="#F5E6CC" stroke="#E0C890" stroke-width="1.5"/>
-      <ellipse cx="273" cy="106" rx="22" ry="13" fill="#FFF5CC" opacity=".35"/>
-    `:''}
+    try {
+      const res = await fetch(url, {
+        headers: { "X-Dashboard-Token": cfg.token },
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
 
-    <!-- SOFA -->
-    ${u('sofa')?`
-      <rect x="58" y="136" width="152" height="34" rx="9" fill="#E8A87C"/>
-      <rect x="52" y="122" width="21" height="48" rx="7" fill="#D4845A"/>
-      <rect x="195" y="122" width="21" height="48" rx="7" fill="#D4845A"/>
-      <rect x="58" y="122" width="152" height="20" rx="7" fill="#D4845A"/>
-      <rect x="64" y="124" width="65" height="14" rx="5" fill="#EEC9A8"/>
-      <rect x="139" y="124" width="65" height="14" rx="5" fill="#EEC9A8"/>
-    `:`<rect x="68" y="153" width="124" height="14" rx="4" fill="#E8D9CC" stroke="#D4C8B8" stroke-width="1"/>`}
-
-    <!-- BED (only if sofa not unlocked) -->
-    ${u('bed')&&!u('sofa')?`
-      <rect x="8" y="132" width="92" height="38" rx="6" fill="#D4A878"/>
-      <rect x="12" y="136" width="37" height="22" rx="5" fill="#F5EDE3"/>
-      <rect x="53" y="136" width="37" height="22" rx="5" fill="#F5EDE3"/>
-      <rect x="8" y="152" width="92" height="18" rx="4" fill="#B8CDEB"/>
-      <rect x="8" y="124" width="11" height="46" rx="4" fill="#B89060"/>
-    `:''}
-
-    <!-- PLANT -->
-    ${u('plant')?`
-      <rect x="17" y="142" width="24" height="26" rx="3" fill="#C8A878"/>
-      <ellipse cx="29" cy="103" rx="18" ry="22" fill="#5B9B47" opacity=".9"/>
-      <ellipse cx="17" cy="114" rx="13" ry="16" fill="#4A8A3A" opacity=".8"/>
-      <ellipse cx="41" cy="112" rx="13" ry="16" fill="#4A8A3A" opacity=".8"/>
-      <ellipse cx="29" cy="90"  rx="11" ry="14" fill="#6AB357" opacity=".9"/>
-    `:''}
-
-    <!-- BEAN 🫘 -->
-    <g transform="translate(${beanX},${beanY})">
-      <ellipse cx="21" cy="54" rx="17" ry="6" fill="rgba(0,0,0,.08)"/>
-      <ellipse cx="21" cy="28" rx="21" ry="27" fill="#6DB54C"/>
-      <path d="M8,18 Q21,8 34,18" fill="none" stroke="#5A9A3C" stroke-width="2.5" stroke-linecap="round"/>
-      <circle cx="14" cy="26" r="4.5" fill="white"/>
-      <circle cx="28" cy="26" r="4.5" fill="white"/>
-      <circle cx="15" cy="27" r="2.2" fill="#2C3E10"/>
-      <circle cx="29" cy="27" r="2.2" fill="#2C3E10"/>
-      <circle cx="15.8" cy="25.8" r=".9" fill="white"/>
-      <circle cx="29.8" cy="25.8" r=".9" fill="white"/>
-      <path d="M14,37 Q21,45 28,37" fill="none" stroke="#3A6A1A" stroke-width="2" stroke-linecap="round"/>
-    </g>
-  `;
-
-  // Shop
-  document.getElementById('shop-grid').innerHTML=SHOP.map(it=>{
-    const owned=d.unlocked.includes(it.id);
-    const can=!owned&&d.points>=it.cost;
-    return `
-    <div class="shop-item ${owned?'owned':can?'can':''}" data-shop="${it.id}">
-      <div class="si-icon">${it.icon}</div>
-      <div class="si-nm">${it.name}</div>
-      <div class="si-cost">${owned?'✓ Freigeschaltet':'⭐ '+it.cost+' Pts'}</div>
-    </div>`;
-  }).join('');
-}
-
-/* ════════════════════════════════
-   RENDER ALL
-════════════════════════════════ */
-function ra() { renderHeute(); }
-
-/* ════════════════════════════════
-   TABS
-════════════════════════════════ */
-function goTab(t) {
-  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+t));
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
-  document.getElementById('fab').style.display=t==='heute'?'flex':'none';
-  if(t==='verlauf') renderVerlauf();
-  if(t==='haus')    renderHaus();
-}
-document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>goTab(b.dataset.t)));
-
-/* ════════════════════════════════
-   MODALS
-════════════════════════════════ */
-const openM = id=>document.getElementById(id).classList.add('open');
-const closeM = id=>document.getElementById(id).classList.remove('open');
-document.querySelectorAll('.modal-x').forEach(b=>b.addEventListener('click',()=>closeM(b.dataset.c)));
-document.querySelectorAll('.overlay').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)closeM(el.id);}));
-document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.overlay.open').forEach(el=>closeM(el.id));});
-
-/* ════════════════════════════════
-   LOG SESSION
-════════════════════════════════ */
-let selPlat='instagram', selMins=null;
-
-document.getElementById('fab').addEventListener('click',()=>{
-  selPlat='instagram'; selMins=null;
-  document.getElementById('inp-min').value='';
-  document.querySelectorAll('.ptbtn').forEach(b=>b.classList.toggle('on',b.dataset.p==='instagram'));
-  document.querySelectorAll('.qbtn').forEach(b=>b.classList.remove('on'));
-  openM('m-log');
-});
-
-document.querySelectorAll('.ptbtn').forEach(b=>b.addEventListener('click',()=>{
-  selPlat=b.dataset.p;
-  document.querySelectorAll('.ptbtn').forEach(x=>x.classList.toggle('on',x.dataset.p===selPlat));
-}));
-
-document.querySelectorAll('.qbtn').forEach(b=>b.addEventListener('click',()=>{
-  selMins=+b.dataset.q;
-  document.getElementById('inp-min').value=selMins;
-  document.querySelectorAll('.qbtn').forEach(x=>x.classList.toggle('on',x.dataset.q===b.dataset.q));
-}));
-document.getElementById('inp-min').addEventListener('input',function(){
-  selMins=+this.value||null;
-  document.querySelectorAll('.qbtn').forEach(b=>b.classList.remove('on'));
-});
-
-document.getElementById('log-save').addEventListener('click',()=>{
-  const m=selMins||+document.getElementById('inp-min').value;
-  if(!m||m<=0){toast('❌ Bitte Minuten eingeben');return;}
-  const d=DB.get(), t=tod();
-  d.sessions.push({id:Date.now().toString(36),date:t,platform:selPlat,minutes:m,created_at:new Date().toISOString()});
-  d.points+=1;
-  const tot=d.sessions.filter(s=>s.date===t).reduce((s,x)=>s+x.minutes,0);
-  DB.save(d); renderHeute(); closeM('m-log');
-  toast(tot>d.settings.limit?`⚠️ Limit überschritten! (${fmtM(tot)} heute)`:`✓ Gespeichert! +1 Punkt — ${fmtM(tot)} heute`);
-});
-
-/* ════════════════════════════════
-   SETTINGS
-════════════════════════════════ */
-document.getElementById('btn-settings').addEventListener('click',()=>{
-  const d=DB.get();
-  document.getElementById('s-name').value=d.settings.name;
-  document.getElementById('s-lim').value=d.settings.limit;
-  document.getElementById('lim-disp').innerHTML=`${d.settings.limit} <span>Min/Tag</span>`;
-  openM('m-set');
-});
-document.getElementById('s-lim').addEventListener('input',function(){
-  document.getElementById('lim-disp').innerHTML=`${this.value} <span>Min/Tag</span>`;
-});
-document.getElementById('set-save').addEventListener('click',()=>{
-  const d=DB.get();
-  d.settings.name=document.getElementById('s-name').value||'Beano';
-  d.settings.limit=+document.getElementById('s-lim').value;
-  DB.save(d); renderHeute(); closeM('m-set');
-  toast('✓ Einstellungen gespeichert!');
-});
-
-/* ════════════════════════════════
-   FOCUS TIMER
-════════════════════════════════ */
-let tDur=25*60, tLeft=25*60, tIv=null, tRun=false, tSelMin=25;
-
-function updTimerDisp(){
-  document.getElementById('timer-disp').textContent=pad(Math.floor(tLeft/60))+':'+pad(tLeft%60);
-  document.getElementById('timer-disp').className='timer-num'+(tRun?' running':'');
-}
-
-document.querySelectorAll('.dur-pill').forEach(p=>p.addEventListener('click',()=>{
-  if(tRun)return;
-  tSelMin=+p.dataset.m; tDur=tSelMin*60; tLeft=tDur;
-  document.querySelectorAll('.dur-pill').forEach(x=>x.classList.toggle('on',x.dataset.m===p.dataset.m));
-  updTimerDisp();
-}));
-
-document.getElementById('tbtn-go').addEventListener('click',()=>{
-  if(tRun){
-    clearInterval(tIv); tRun=false;
-    document.getElementById('tbtn-go').textContent='▶ Fortsetzen';
-  } else {
-    tRun=true;
-    document.getElementById('tbtn-go').textContent='⏸ Pausieren';
-    tIv=setInterval(()=>{
-      tLeft--;
-      updTimerDisp();
-      if(tLeft<=0){
-        clearInterval(tIv); tRun=false;
-        document.getElementById('tbtn-go').textContent='▶ Starten';
-        const d=DB.get(); d.points+=3; DB.save(d);
-        renderHeute(); renderHaus();
-        toast(`🎯 Fokus fertig! +3 Punkte`);
-        tLeft=tDur; updTimerDisp();
+      if (res.status === 401) {
+        setStatus("error", "🔒 Ungueltiges Dashboard-Token. Bitte in den Einstellungen pruefen.");
+        return;
       }
-    },1000);
+      if (!res.ok) {
+        let detail = "";
+        try { detail = (await res.json()).error || ""; } catch (e) {}
+        setStatus("error", `⚠️ Serverfehler (${res.status})${detail ? ": " + detail : ""}`);
+        return;
+      }
+
+      const data = await res.json();
+      lastGoodData = data;
+      renderAccount(data);
+      renderPositions(data.positions);
+      renderTrades(data.recent_trades);
+      setStatus("ok");
+      setLastUpdated("Aktualisiert: " + new Date().toLocaleTimeString("de-DE"));
+    } catch (err) {
+      clearTimeout(timeout);
+      setStatus(
+        "error",
+        "📡 Keine Verbindung zum Server. Ist der Raspberry Pi erreichbar (Tailscale aktiv)?"
+      );
+      if (lastGoodData) {
+        setLastUpdated(
+          "Letzte Daten von " + new Date().toLocaleTimeString("de-DE") + " (Verbindung unterbrochen)"
+        );
+      } else {
+        setLastUpdated("Keine Daten verfuegbar");
+      }
+    }
   }
-  updTimerDisp();
-});
 
-document.getElementById('tbtn-rst').addEventListener('click',()=>{
-  clearInterval(tIv); tRun=false; tLeft=tDur;
-  document.getElementById('tbtn-go').textContent='▶ Starten';
-  updTimerDisp();
-});
+  function startPolling() {
+    if (refreshTimer) clearInterval(refreshTimer);
+    fetchStatus();
+    refreshTimer = setInterval(fetchStatus, REFRESH_MS);
+  }
 
-/* ════════════════════════════════
-   SHOP: BUY
-════════════════════════════════ */
-document.getElementById('shop-grid').addEventListener('click',e=>{
-  const el=e.target.closest('[data-shop]'); if(!el)return;
-  const item=SHOP.find(x=>x.id===el.dataset.shop); if(!item)return;
-  const d=DB.get();
-  if(d.unlocked.includes(item.id)){toast('✓ Bereits freigeschaltet!');return;}
-  if(d.points<item.cost){toast(`⭐ Noch ${item.cost-d.points} Punkte nötig`);return;}
-  d.points-=item.cost; d.unlocked.push(item.id);
-  DB.save(d); renderHaus(); renderHeute();
-  toast(`${item.icon} ${item.name} freigeschaltet!`);
-});
+  // ---------- Kontostand-Verlauf (Equity-Chart) ----------
+  function setEquityMessage(message, isError) {
+    const msgEl = el("equityMessage");
+    const statsEl = el("equityStats");
+    const chartWrap = el("chartWrap");
 
-/* ════════════════════════════════
-   SCREENSHOT SCAN
-════════════════════════════════ */
-document.getElementById('btn-scan').addEventListener('click', () => {
-  // reset state
-  document.getElementById('scan-file').value = '';
-  document.getElementById('scan-preview').style.display = 'none';
-  document.getElementById('scan-result').style.display = 'none';
-  document.getElementById('scan-import').style.display = 'none';
-  document.getElementById('scanning-spinner').style.display = 'none';
-  openM('m-scan');
-});
+    if (!message) {
+      msgEl.className = "chart-message";
+      msgEl.textContent = "";
+      statsEl.style.display = "grid";
+      chartWrap.style.display = "block";
+      return;
+    }
+    // Anforderung 7: sichtbare Fehlermeldung statt leerer Flaeche, UND der
+    // Rest des Dashboards (Konto-Karte, Positionen, Trades) laeuft normal
+    // weiter -- diese Meldung ersetzt nur die Chart-Karte, nicht die ganze
+    // Seite und nicht die globale Verbindungs-Banner oben.
+    msgEl.className = "chart-message show" + (isError ? " err" : "");
+    msgEl.textContent = message;
+    statsEl.style.display = "none";
+    chartWrap.style.display = "none";
+  }
 
-let scanData = []; // [{platform, minutes}]
+  function renderEquityStats(data) {
+    el("eqCurrent").textContent = data.current_equity != null ? formatCurrency(data.current_equity) : "–";
 
-document.getElementById('scan-file').addEventListener('change', async function() {
-  const file = this.files[0];
-  if (!file) return;
+    const plEl = el("eqPl");
+    if (data.period_pl_dollar != null && data.period_pl_percent != null) {
+      const cls = plClass(data.period_pl_dollar);
+      plEl.className = "value " + cls;
+      plEl.textContent = formatSignedCurrency(data.period_pl_dollar) + " " + formatSignedPercent(data.period_pl_percent);
+    } else {
+      plEl.className = "value";
+      plEl.textContent = "–";
+    }
 
-  // Show preview
-  const reader = new FileReader();
-  reader.onload = e => {
-    const prev = document.getElementById('scan-preview');
-    prev.src = e.target.result;
-    prev.style.display = 'block';
-  };
-  reader.readAsDataURL(file);
+    function renderDay(elId, day) {
+      const target = el(elId);
+      if (!day) {
+        target.className = "value";
+        target.textContent = "–";
+        return;
+      }
+      target.className = "value " + plClass(day.change_dollar);
+      target.textContent =
+        formatShortDateDE(day.date) + "  " + formatSignedCurrency(day.change_dollar) + " " + formatSignedPercent(day.change_percent);
+    }
+    renderDay("eqBestDay", data.best_day);
+    renderDay("eqWorstDay", data.worst_day);
 
-  // Show spinner, hide result
-  document.getElementById('scanning-spinner').style.display = 'flex';
-  document.getElementById('scan-result').style.display = 'none';
-  document.getElementById('scan-import').style.display = 'none';
+    const ddEl = el("eqDrawdown");
+    if (data.max_drawdown_dollar != null) {
+      ddEl.className = "value wide " + plClass(data.max_drawdown_dollar);
+      ddEl.textContent = formatSignedCurrency(data.max_drawdown_dollar) + " " + formatSignedPercent(data.max_drawdown_percent);
+    } else {
+      ddEl.className = "value wide";
+      ddEl.textContent = "–";
+    }
+  }
 
-  // Convert to base64
-  const b64 = await new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload  = () => res(r.result.split(',')[1]);
-    r.onerror = rej;
-    r.readAsDataURL(file);
-  });
-  const mediaType = file.type || 'image/jpeg';
+  function renderEquityChart(data) {
+    if (typeof Chart === "undefined") {
+      setEquityMessage("⚠️ Chart-Bibliothek konnte nicht geladen werden (chart.umd.min.js fehlt?).", true);
+      return;
+    }
 
-  try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 300,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: mediaType, data: b64 }
+    const points = data.points || [];
+    if (points.length === 0) {
+      setEquityMessage("Noch keine Kontostand-Historie fuer diesen Zeitraum verfuegbar.", false);
+      return;
+    }
+
+    setEquityMessage(null);
+    renderEquityStats(data);
+
+    const labels = points.map((p) => formatShortDateDE(p.date));
+    const equityValues = points.map((p) => p.equity);
+    const baseLine = points.map(() => data.base_value);
+
+    const ctx = el("equityChart").getContext("2d");
+    if (equityChart) {
+      equityChart.data.labels = labels;
+      equityChart.data.datasets[0].data = equityValues;
+      equityChart.data.datasets[1].data = baseLine;
+      equityChart.update();
+      return;
+    }
+
+    equityChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Kontostand",
+            data: equityValues,
+            borderColor: "#3b82f6",
+            backgroundColor: "rgba(59,130,246,0.08)",
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHitRadius: 10,
+            tension: 0.15,
+            fill: true,
+          },
+          {
+            // Anforderung 4: gestrichelte horizontale Linie beim Startwert
+            // des Zeitraums -- bewusst als simples zweites Dataset mit
+            // konstantem Wert statt eines extra Annotation-Plugins, damit
+            // keine zusaetzliche Bibliothek noetig ist (Pi-Zero-Vorgabe:
+            // keine schweren Abhaengigkeiten).
+            label: "Startwert",
+            data: baseLine,
+            borderColor: "rgba(124,135,151,0.6)",
+            borderWidth: 1,
+            borderDash: [6, 4],
+            pointRadius: 0,
+            pointHitRadius: 0,
+            fill: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 200 },
+        interaction: { mode: "index", intersect: false },
+        scales: {
+          x: {
+            ticks: { color: "#7c8797", maxRotation: 0, autoSkip: true, font: { size: 11 } },
+            grid: { display: false },
+          },
+          y: {
+            ticks: {
+              color: "#7c8797",
+              font: { size: 11 },
+              callback: (value) => formatCurrency(value),
             },
-            {
-              type: 'text',
-              text: `This is a screenshot of iOS Screen Time or Android Digital Wellbeing.
-Find usage times ONLY for Instagram and TikTok.
-Respond ONLY with a JSON array, no explanation, no markdown, no backticks.
-Format: [{"platform":"instagram","minutes":30},{"platform":"tiktok","minutes":15}]
-If a platform is not visible, omit it. Convert hours to minutes (e.g. 1h 30m = 90).
-If neither platform is visible, return [].`
-            }
-          ]
-        }]
-      })
+            grid: { color: "rgba(255,255,255,0.06)" },
+          },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "#1a2230",
+            titleColor: "#e8ecf1",
+            bodyColor: "#e8ecf1",
+            borderColor: "rgba(255,255,255,0.08)",
+            borderWidth: 1,
+            padding: 10,
+            // Anforderung 5: Datum, Kontostand, Tagesveraenderung -- die
+            // "Startwert"-Hilfslinie wird hier bewusst ausgeblendet, die
+            // zeigt sich nur visuell im Chart, nicht im Tooltip.
+            filter: (item) => item.datasetIndex === 0,
+            callbacks: {
+              title: (items) => (items.length ? points[items[0].dataIndex].date.split("-").reverse().join(".") : ""),
+              label: (item) => {
+                const idx = item.dataIndex;
+                const equity = points[idx].equity;
+                let line = "Kontostand: " + formatCurrency(equity);
+                if (idx > 0) {
+                  const change = equity - points[idx - 1].equity;
+                  const changePct = points[idx - 1].equity ? (change / points[idx - 1].equity) * 100 : 0;
+                  line += "  (" + formatSignedCurrency(change) + " " + formatSignedPercent(changePct) + ")";
+                }
+                return line;
+              },
+            },
+          },
+        },
+      },
     });
-
-    const data = await resp.json();
-    const raw = (data.content || []).find(b => b.type === 'text')?.text || '[]';
-
-    let parsed;
-    try { parsed = JSON.parse(raw.replace(/```json|```/g, '').trim()); }
-    catch { parsed = []; }
-
-    document.getElementById('scanning-spinner').style.display = 'none';
-
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      toast('⚠️ Keine Instagram/TikTok-Zeiten gefunden');
-      return;
-    }
-
-    // Ensure only valid platforms
-    scanData = parsed.filter(x => ['instagram','tiktok'].includes(x.platform) && x.minutes > 0);
-
-    if (scanData.length === 0) {
-      toast('⚠️ Keine Zeitdaten erkannt – bitte manuell eingeben');
-      return;
-    }
-
-    // Render editable result rows
-    document.getElementById('scan-rows').innerHTML = scanData.map((x, i) => `
-      <div class="scan-row">
-        <div class="scan-row-left">
-          <span style="font-size:20px">${x.platform === 'instagram' ? '📸' : '🎵'}</span>
-          ${x.platform === 'instagram' ? 'Instagram' : 'TikTok'}
-        </div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <input class="scan-edit" type="number" inputmode="numeric"
-                 id="scan-val-${i}" value="${x.minutes}" min="1" max="999">
-          <span class="scan-unit">Min</span>
-        </div>
-      </div>`).join('');
-
-    document.getElementById('scan-result').style.display = 'block';
-    document.getElementById('scan-import').style.display = 'block';
-
-  } catch (err) {
-    document.getElementById('scanning-spinner').style.display = 'none';
-    toast('❌ Fehler beim Scannen: ' + err.message);
   }
-});
 
-document.getElementById('scan-import').addEventListener('click', () => {
-  const d = DB.get(), t = tod();
-  let added = 0;
-  scanData.forEach((x, i) => {
-    const mins = parseInt(document.getElementById('scan-val-' + i).value) || 0;
-    if (mins <= 0) return;
-    d.sessions.push({
-      id: Date.now().toString(36) + i,
-      date: t,
-      platform: x.platform,
-      minutes: mins,
-      created_at: new Date().toISOString(),
-      source: 'scan'
+  async function fetchEquityHistory(period) {
+    if (!hasConfig()) return; // Haupt-Fehlermeldung kommt bereits aus fetchStatus()
+
+    const cfg = loadConfig();
+    const url = cfg.apiUrl.replace(/\/+$/, "") + "/api/equity-history?period=" + encodeURIComponent(period);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    try {
+      const res = await fetch(url, {
+        headers: { "X-Dashboard-Token": cfg.token },
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (res.status === 401) {
+        setEquityMessage("🔒 Ungueltiges Dashboard-Token.", true);
+        return;
+      }
+      if (!res.ok) {
+        let detail = "";
+        try { detail = (await res.json()).error || ""; } catch (e) {}
+        setEquityMessage("⚠️ Kontostand-Verlauf nicht verfuegbar" + (detail ? ": " + detail : " (Serverfehler " + res.status + ")"), true);
+        return;
+      }
+
+      const data = await res.json();
+      renderEquityChart(data);
+    } catch (err) {
+      clearTimeout(timeout);
+      setEquityMessage("📡 Kontostand-Verlauf: keine Verbindung zum Server.", true);
+    }
+  }
+
+  function startEquityPolling() {
+    if (equityRefreshTimer) clearInterval(equityRefreshTimer);
+    fetchEquityHistory(currentEquityPeriod);
+    equityRefreshTimer = setInterval(() => fetchEquityHistory(currentEquityPeriod), EQUITY_REFRESH_MS);
+  }
+
+  function initPeriodSwitcher() {
+    el("periodSwitcher").querySelectorAll(".period-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (btn.dataset.period === currentEquityPeriod) return;
+        el("periodSwitcher").querySelectorAll(".period-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentEquityPeriod = btn.dataset.period;
+        startEquityPolling();
+      });
     });
-    d.points += 2; // bonus for using scan
-    added++;
+  }
+
+  // ---------- Einstellungen-Modal ----------
+  function openModal() {
+    const cfg = loadConfig() || {};
+    el("apiUrlInput").value = cfg.apiUrl || "";
+    el("tokenInput").value = cfg.token || "";
+    el("modalStatus").textContent = "";
+    el("modalStatus").className = "modal-status";
+    el("modalBackdrop").classList.add("show");
+  }
+
+  function closeModal() {
+    el("modalBackdrop").classList.remove("show");
+  }
+
+  function saveSettings() {
+    const apiUrl = el("apiUrlInput").value.trim();
+    const token = el("tokenInput").value.trim();
+    const statusEl = el("modalStatus");
+
+    if (!apiUrl || !token) {
+      statusEl.textContent = "Bitte beide Felder ausfuellen.";
+      statusEl.className = "modal-status err";
+      return;
+    }
+
+    saveConfig({ apiUrl, token });
+    statusEl.textContent = "Gespeichert.";
+    statusEl.className = "modal-status ok";
+    setTimeout(() => {
+      closeModal();
+      startPolling();
+      startEquityPolling();
+    }, 400);
+  }
+
+  // ---------- Event-Listener ----------
+  el("settingsBtn").addEventListener("click", openModal);
+  el("modalCancel").addEventListener("click", closeModal);
+  el("modalSave").addEventListener("click", saveSettings);
+  el("modalBackdrop").addEventListener("click", (e) => {
+    if (e.target === el("modalBackdrop")) closeModal();
   });
-  DB.save(d);
-  renderHeute();
-  closeM('m-scan');
-  toast(`✓ ${added} Einträge importiert! +${added * 2} Punkte`);
-});
+  el("refreshBtn").addEventListener("click", () => {
+    fetchStatus();
+    fetchEquityHistory(currentEquityPeriod);
+  });
 
-
-if('serviceWorker' in navigator){
-  const sw=`const C='beanfocus-v1';
-self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.addAll(['/']))));
-self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));`;
-  navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:'application/javascript'})),{type:'classic'}).catch(()=>{});
-}
-
-/* ════════════════════════════════
-   MANIFEST — inject bean icons
-════════════════════════════════ */
-(function(){
-  const manifest = {
-    name:'BeanFocus', short_name:'BeanFocus',
-    description:'Social Media Tracker mit Bohnenhaus',
-    start_url:'./index.html', display:'standalone',
-    background_color:'#FDF6EE', theme_color:'#E8704A',
-    orientation:'portrait-primary',
-    icons:[
-      {src:window._beanIcon192, sizes:'192x192', type:'image/png', purpose:'any maskable'},
-      {src:window._beanIcon512, sizes:'512x512', type:'image/png', purpose:'any maskable'}
-    ]
-  };
-  const el = document.querySelector('link[rel="manifest"]');
-  if(el) el.href = URL.createObjectURL(new Blob([JSON.stringify(manifest)],{type:'application/manifest+json'}));
+  // ---------- Start ----------
+  initPeriodSwitcher();
+  if (!hasConfig()) {
+    openModal();
+  }
+  startPolling();
+  startEquityPolling();
 })();
-
-/* ════════════════════════════════
-   INIT
-════════════════════════════════ */
-dailyReward();
-renderHeute();
-updTimerDisp();
-goTab('heute');
 </script>
+
 </body>
 </html>

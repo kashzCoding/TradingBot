@@ -1,0 +1,20 @@
+alpaca-py>=0.33.0
+pandas>=2.0.0
+numpy>=1.24.0
+python-dotenv>=1.0.0
+colorama>=0.4.6
+# War bisher nur eine transitive Abhaengigkeit von alpaca-py (nutzt intern
+# requests.Session fuer alle HTTP-Calls). Jetzt auch direkt importiert in
+# bot.py, um Alpaca-Timeouts (requests.exceptions.RequestException) explizit
+# abzufangen -- siehe order_executor.apply_default_request_timeout().
+requests>=2.31.0
+
+# Fuer das Mobile-Dashboard (api_server.py). Nicht noetig, wenn du nur den
+# Trading-Bot selbst (main.py) laufen lassen willst.
+flask>=3.0.0
+flask-cors>=4.0.0
+
+# Optional: nur als Fallback-Datenquelle fuer backtest.py, wenn keine
+# gueltigen Alpaca-Keys hinterlegt sind. Fuer Live/Paper-Trading nicht
+# noetig (wird in backtest.py nur bei Bedarf lazy importiert).
+yfinance>=0.2.40
