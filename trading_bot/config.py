@@ -101,6 +101,15 @@ class Config:
     safety_check_interval_seconds: float = field(
         default_factory=lambda: _get_float("SAFETY_CHECK_INTERVAL_SECONDS", 300.0)
     )
+    # Wie viele Sekunden NACH einem Kerzenschluss der Strategie-Scan startet
+    # (siehe bot.seconds_until_next_scan). Der Scan richtet sich an den
+    # CHECK_INTERVAL_MINUTES-Grenzen der Uhr aus (:00, :15, :30, :45 bei 15
+    # Minuten) statt einfach "15 Minuten nach dem letzten Scan" zu laufen;
+    # die kleine Verzoegerung gibt Alpaca Zeit, die gerade abgeschlossene
+    # Kerze bereitzustellen.
+    scan_delay_after_bar_close_seconds: float = field(
+        default_factory=lambda: _get_float("SCAN_DELAY_AFTER_BAR_CLOSE_SECONDS", 30.0)
+    )
 
     # Batching for the Nasdaq-100-sized watchlist (keeps requests/minute well
     # under Alpaca's rate limits instead of firing ~100 calls back to back)
@@ -146,6 +155,10 @@ class Config:
         default_factory=lambda: _mode_default("TAKE_PROFIT_PCT", "take_profit_pct", float)
     )
     max_daily_loss_pct: float = field(default_factory=lambda: _get_float("MAX_DAILY_LOSS_PCT", 3.0))
+    # Obergrenze fuer gleichzeitig offene Positionen (0 = keine Obergrenze).
+    # Begrenzt zusammen mit POSITION_SIZE_PCT die Investitionsquote: 25
+    # Positionen a 2% sind maximal ~50% des Kontos. Nicht mode-aware.
+    max_open_positions: int = field(default_factory=lambda: _get_int("MAX_OPEN_POSITIONS", 25))
 
     # Pattern-Modul (Trendlinien-/Chartmuster-Erkennung, siehe patterns.py):
     # komplett optional, per Default aus -- aendert bei PATTERN_ENABLED=false
@@ -227,6 +240,10 @@ class Config:
             raise ValueError("POSITION_SIZE_PCT must be between 0 and 100.")
         if not (0 < self.max_daily_loss_pct <= 100):
             raise ValueError("MAX_DAILY_LOSS_PCT must be between 0 and 100.")
+        if self.max_open_positions < 0:
+            raise ValueError("MAX_OPEN_POSITIONS must be 0 (no limit) or greater.")
+        if self.scan_delay_after_bar_close_seconds < 0:
+            raise ValueError("SCAN_DELAY_AFTER_BAR_CLOSE_SECONDS must be 0 or greater.")
         if self.pattern_combine_mode not in ("confirm", "weighted"):
             raise ValueError(
                 f"PATTERN_COMBINE_MODE must be 'confirm' or 'weighted', got '{self.pattern_combine_mode}'."

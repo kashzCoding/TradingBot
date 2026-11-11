@@ -56,6 +56,44 @@ def parse_timeframe(value: str) -> TimeFrame:
     return TimeFrame(int(amount), _UNIT_MAP[unit.lower()])
 
 
+def timeframe_to_offset(value: str) -> pd.DateOffset:
+    """Dauer einer Kerze des gegebenen TIMEFRAME-Werts (z.B. '15Min') als
+    pandas-Offset -- Monat/Woche/Tag kalendergenau statt als feste
+    Sekundenzahl, damit `Kerzenbeginn + Offset` exakt das Kerzenende ergibt.
+    """
+    match = _TIMEFRAME_RE.match(value.strip())
+    if not match:
+        raise ValueError(f"Invalid TIMEFRAME '{value}'. Expected e.g. '15Min', '1Hour', '1Day'.")
+    amount, unit = int(match.group(1)), match.group(2).lower()
+    keyword = {"min": "minutes", "hour": "hours", "day": "days", "week": "weeks", "month": "months"}[unit]
+    return pd.DateOffset(**{keyword: amount})
+
+
+def drop_incomplete_bars(bars: pd.DataFrame, timeframe: str, now: datetime | None = None) -> pd.DataFrame:
+    """Entfernt die letzte Kerze, falls ihr Zeitfenster noch nicht
+    abgeschlossen ist (Alpaca-Zeitstempel sind linksbasiert: Kerzenbeginn).
+
+    Signale duerfen nur auf fertigen Kerzen entstehen: eine noch laufende
+    Kerze aendert Schlusskurs/Hoch/Tief bis zu ihrem Ende, ein darauf
+    berechnetes MACD-/SMA-Signal kann bis zum Kerzenschluss wieder
+    verschwinden -- und der Backtest kennt ohnehin nur fertige Kerzen, live
+    und Backtest wuerden sonst unterschiedliche Dinge messen. Ob Alpaca die
+    laufende Kerze ueberhaupt mitliefert, ist nicht dokumentiert; liefert
+    es sie nicht, ist das hier schlicht ein No-op.
+    """
+    if bars is None or bars.empty:
+        return bars
+    now_ts = pd.Timestamp(now if now is not None else datetime.now(timezone.utc))
+    if now_ts.tzinfo is None:
+        now_ts = now_ts.tz_localize("UTC")
+    last_start = pd.Timestamp(bars.index[-1])
+    if last_start.tzinfo is None:
+        last_start = last_start.tz_localize("UTC")
+    if last_start + timeframe_to_offset(timeframe) > now_ts:
+        return bars.iloc[:-1]
+    return bars
+
+
 def estimate_lookback_start(timeframe: TimeFrame, bars_needed: int) -> datetime:
     """Wie weit ein `start`-Datum zurueckliegen muss, damit trotz Wochenenden,
     Feiertagen und Handelspausen sicher `bars_needed` Bars der gegebenen

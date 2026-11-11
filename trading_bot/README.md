@@ -22,6 +22,7 @@ Vollautomatischer, modularer Trading-Bot fuer Alpaca (Paper-Trading zuerst).
 | `backtest.py` | Backtest-Modul: spielt die Strategie (inkl. Pattern-Modul) auf historischen Daten durch. |
 | `bot.py` | Haupt-Loop: Marktzeiten pruefen, Watchlist durchgehen, Fehlerbehandlung pro Symbol. |
 | `main.py` | Einstiegspunkt (`python -m trading_bot.main`). |
+| `measure_baseline.py` | Rein lesende Messung: Konto gegen QQQ kaufen-und-halten, und ob Alpaca die laufende Kerze mitliefert (`python -m trading_bot.measure_baseline`). |
 | `api_server.py` | Read-only Status-API fuers Mobile-Dashboard (`python -m trading_bot.api_server`), siehe unten. |
 | `index.html` (im Projekt-Root, eine Ebene ueber `trading_bot/`) | Statische Dashboard-Seite fuers Handy (GitHub Pages), siehe unten. |
 
@@ -223,7 +224,9 @@ PATTERN AAPL: BULLISH conf=0.79 (trendline_breakout_up) — Ausbruch ueber Abwae
 - **Verwaiste Take-Profit-Orders:** sind die Aktien einer ungeschuetzten Position bereits durch eine andere offene Order gebunden (z.B. ein uebrig gebliebenes Take-Profit-Leg ohne zugehoeriges Stop-Loss, ein Nachwehen aus der Zeit vor dem GTC-Fix), wuerde eine blind versuchte neue Stop-Order zwangslaeufig mit "insufficient qty available for order" scheitern und sich jeden Zyklus identisch wiederholen. Der Bot erkennt eine solche Order eindeutig (`order_executor.is_orphaned_take_profit_order`: SELL-Limit mit `order_class` bracket ODER oco, ohne aktives Stop-Loss-Gegenstueck) und storniert sie automatisch, bevor ein sauberes neues Stop-Loss+Take-Profit-Paar (OCO) fuer die volle, wieder freie Menge nachgelegt wird. Ist eine blockierende Order NICHT eindeutig zuordenbar (z.B. eine gerade laufende reguläre Exit-Order), wird nichts automatisch angefasst -- nur ein "KRITISCH"-Alert mit den Details, manuelle Pruefung noetig.
 - **Bracket- vs. OCO-Legs:** Alpaca kann die beiden Legs einer Multi-Leg-Order (Bracket beim Entry, OCO beim nachtraeglichen Exit-Paar) je nach Abfrage entweder als zwei eigenstaendige flache Eintraege ODER zusammengerollt im `.legs`-Feld der Parent-Order zurueckgeben. `OrderExecutor.get_open_orders()` fragt deshalb bewusst mit `nested=True` ab und raeumt das Ergebnis ueber `_flatten_order_legs()` zu einer flachen Liste auf, in der jedes Leg (Parent und Kinder) einzeln auftaucht -- das ist die einzige Stelle dafuer, sowohl `has_active_stop_loss()` als auch der Portfolio-Scan und die Reparaturlogik in `bot.py` bauen direkt darauf auf.
 - **Einmaliger Portfolio-Scan (rein lesend, keine Aenderungen):** `python -m trading_bot.scan_position_protection` geht einmalig ueber alle offenen Positionen und meldet fuer jede, ob sie geschuetzt ist und falls nicht, ob (und welche) blockierende Order dahinter steckt -- gedacht, um vor dem produktiven Einsatz der obigen Reparaturlogik zu sehen, wie viele Positionen im Portfolio tatsaechlich betroffen sind.
-- **Tagesverlust-Limit:** sobald der realisierte Tagesverlust `MAX_DAILY_LOSS_PCT` % des Start-Equity des Tages ueberschreitet, werden fuer den Rest des Tages keine neuen Positionen mehr eroeffnet (offene Positionen bleiben durch ihre Bracket-Orders abgesichert).
+- **Tagesverlust-Limit:** liegt der Kontostand um `MAX_DAILY_LOSS_PCT` % oder mehr unter dem Schlussstand des vorherigen Handelstags (Alpacas `last_equity`), werden fuer den Rest des Tages keine neuen Positionen mehr eroeffnet -- auch wenn sich der Kontostand danach wieder erholt. Gemessen wird direkt am Kontostand, nicht an einem selbst mitgezaehlten Verlust: so zaehlen auch Stop-Loss-Ausfuehrungen ueber die Bracket-Order und offene Buchverluste mit, und ein Neustart setzt nichts zurueck. Exit-Signale fuer offene Positionen bleiben aktiv, die Positionen bleiben ausserdem durch ihre Bracket-Orders abgesichert.
+- **Obergrenze fuer offene Positionen:** `MAX_OPEN_POSITIONS` (Default 25, 0 = keine Obergrenze). Ist sie erreicht, wird ein Kaufsignal nur als HOLD mit Begruendung geloggt. Bestehende Positionen ueber der Grenze werden nicht verkauft.
+- **Nur abgeschlossene Kerzen:** eine noch laufende Kerze wird vor der Signalberechnung verworfen (`data_feed.drop_incomplete_bars`), und der Scan startet `SCAN_DELAY_AFTER_BAR_CLOSE_SECONDS` (Default 30) nach jeder `CHECK_INTERVAL_MINUTES`-Grenze der Uhr statt beliebig dazwischen. Live-Bot und Backtest werten damit dieselbe Art von Kerze aus.
 - **Netzwerk-Timeouts (wichtig auf instabilen Verbindungen wie Tailscale auf dem Pi Zero):** alpaca-py bietet selbst KEIN Timeout an (weder im Konstruktor noch sonstwo) und wartet ohne eigenes Zutun unbegrenzt auf eine Antwort -- eine Verbindung, die Pakete kommentarlos verschluckt statt sie abzulehnen (z.B. ein Tailscale-Aussetzer), haengt sonst fuer immer, ganz ohne Exception oder Log-Eintrag (genau das hat einmal den Sicherheits-Check-Thread lautlos lahmgelegt). `order_executor.apply_default_request_timeout()` erzwingt deshalb per Monkeypatch auf `requests.Session` (den einzigen verfuegbaren Hebel) ein hartes `(connect=10s, read=20s)`-Timeout fuer JEDEN HTTP-Request beider `TradingClient`-Instanzen (Order-Ausfuehrung und Markt-Uhrzeit) -- worst case haengt ein einzelner Call also maximal ~30s statt ewig, danach kommt eine `requests.exceptions.RequestException`, die als `[SafetyCheck] TIMEOUT/Netzwerkfehler ...` geloggt wird; der naechste reguläre Intervall-Durchlauf findet trotzdem normal statt. Stirbt der Sicherheits-Check-Thread trotzdem komplett (unerwartete, nicht abgefangene Exception), wird das als KRITISCH geloggt und per Telegram gemeldet -- ein stiller toter Sicherheits-Check waere gefaehrlicher als gar keiner.
 
 ## Logging
@@ -344,6 +347,14 @@ an mehrere Chats schicken, es braucht nur eine zweite Chat-ID:
    die Gruppen-Chat-ID ist eine negative Zahl).
 4. Die gefundene ID als `TELEGRAM_CHAT_ID_STATUS` in `.env` eintragen und
    den Bot neu starten.
+
+## Tests
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Laufen ohne Netzwerk und ohne Alpaca-Keys (Alpaca ist durch Mocks ersetzt).
 
 ## Fehlerbehandlung
 

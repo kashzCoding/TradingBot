@@ -36,28 +36,57 @@ class BracketPrices:
 class RiskManager:
     def __init__(self, config: Config):
         self._config = config
-        self._current_day: date | None = None
-        self._starting_equity: float = 0.0
-        self._realized_pnl_today: float = 0.0
+        # Tag (UTC-Datum), an dem das Tagesverlust-Limit ausgeloest hat --
+        # bleibt fuer den Rest dieses Tages gesetzt, auch wenn sich der
+        # Kontostand zwischenzeitlich wieder erholt (siehe
+        # daily_loss_limit_hit).
+        self._halted_day: date | None = None
 
-    def start_new_day_if_needed(self, today: date, equity: float) -> None:
-        if self._current_day != today:
-            self._current_day = today
-            self._starting_equity = equity
-            self._realized_pnl_today = 0.0
+    def daily_loss_pct(self, equity: float, last_equity: float) -> float:
+        """Tagesveraenderung des Kontostands in Prozent gegenueber dem
+        Schlussstand des vorherigen Handelstags (Alpacas `last_equity`).
+        Negativ = Verlust. 0.0, wenn kein Vortageswert vorliegt.
+        """
+        if last_equity <= 0:
+            return 0.0
+        return (equity - last_equity) / last_equity * 100
 
-    def register_realized_pnl(self, pnl: float) -> None:
-        self._realized_pnl_today += pnl
+    def daily_loss_limit_hit(self, today: date, equity: float, last_equity: float) -> bool:
+        """True, sobald der Kontostand heute um mindestens
+        MAX_DAILY_LOSS_PCT unter dem Vortagesschluss liegt.
 
-    @property
-    def realized_pnl_today(self) -> float:
-        return self._realized_pnl_today
+        Bewusst auf dem Kontostand (equity vs. last_equity, beides direkt
+        von Alpaca) statt auf einem selbst mitgezaehlten "realisierten
+        Tagesverlust": der alte Zaehler erfasste nur Verkaeufe per
+        Strategie-Signal -- Stop-Loss-Ausfuehrungen ueber die Bracket-Order
+        (dort entstehen die meisten Verluste) liefen komplett daran vorbei,
+        und nach einem Neustart stand er wieder bei 0. Der Kontostand
+        enthaelt dagegen alles (Stops, Signal-Exits, offene Buchverluste)
+        und ueberlebt jeden Neustart, weil nichts im Speicher gehalten wird.
 
-    def daily_loss_limit_hit(self) -> bool:
-        if self._starting_equity <= 0:
-            return False
-        max_loss = self._starting_equity * (self._config.max_daily_loss_pct / 100)
-        return self._realized_pnl_today <= -max_loss
+        Einmal ausgeloest, bleibt das Limit fuer den Rest des Tages aktiv
+        (`_halted_day`), auch wenn sich der Kontostand wieder ueber die
+        Schwelle erholt -- sonst wuerde der Bot an einem schwankenden Tag
+        direkt an der Schwelle immer wieder ein- und aussetzen. Nach einem
+        Neustart wird einfach erneut am aktuellen Kontostand gemessen.
+        """
+        if self._halted_day == today:
+            return True
+        if self.daily_loss_pct(equity, last_equity) <= -self._config.max_daily_loss_pct:
+            self._halted_day = today
+            return True
+        return False
+
+    def max_positions_reached(self, open_positions: int) -> bool:
+        """True, wenn keine weitere Position eroeffnet werden darf
+        (MAX_OPEN_POSITIONS; 0 = keine Obergrenze). Begrenzt die
+        Gesamt-Investitionsquote: jede Position ist POSITION_SIZE_PCT des
+        Kontos gross, ohne Obergrenze koennte der Bot sonst bei genug
+        gleichzeitigen Signalen das ganze Konto in stark gleichlaufende
+        Titel stecken.
+        """
+        limit = self._config.max_open_positions
+        return limit > 0 and open_positions >= limit
 
     def calculate_position_size(self, equity: float, buying_power: float, price: float) -> int:
         """Fixed fractional sizing: at most position_size_pct of equity per trade,

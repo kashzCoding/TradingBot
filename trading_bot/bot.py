@@ -22,7 +22,7 @@ import pandas as pd
 import requests
 
 from trading_bot.config import Config
-from trading_bot.data_feed import MarketDataFeed
+from trading_bot.data_feed import MarketDataFeed, drop_incomplete_bars
 from trading_bot.notifier import TradeFailureNotifier
 from trading_bot.order_executor import (
     OrderExecutionError,
@@ -54,6 +54,21 @@ except ImportError:  # colorama not installed -> plain, uncolored output
     Style = _NoColor()
 
 logger = logging.getLogger("trading_bot")
+
+
+def seconds_until_next_scan(now_epoch: float, interval_seconds: float, delay_seconds: float) -> float:
+    """Sekunden bis zum naechsten Strategie-Scan: `delay_seconds` nach der
+    naechsten Intervall-Grenze der Uhr (bei 15 Minuten also :00:30, :15:30,
+    ...), statt einfach "ein Intervall nach dem letzten Scan".
+
+    Kerzen schliessen genau an diesen Uhr-Grenzen. Ein Scan, der beliebig
+    dazwischen laeuft, sieht die juengste fertige Kerze je nach Startzeit
+    des Bots mit bis zu einem ganzen Intervall Verspaetung -- und driftet
+    mit jeder Scan-Dauer weiter. So sieht jeder Scan die gerade
+    abgeschlossene Kerze wenige Sekunden nach ihrem Ende.
+    """
+    next_boundary = (int((now_epoch - delay_seconds) // interval_seconds) + 1) * interval_seconds
+    return max(next_boundary + delay_seconds - now_epoch, 0.0)
 
 
 class TradingBot:
@@ -95,6 +110,12 @@ class TradingBot:
         # sauberer Stop-Mechanismus fuer Tests / stop().
         self._stop_event = threading.Event()
         self._safety_check_thread: threading.Thread | None = None
+        # Pro Scan in run_cycle() gesetzt, nur vom Scan-Thread benutzt:
+        # warum gerade keine neuen Positionen eroeffnet werden duerfen
+        # (None = Einstiege erlaubt) und wie viele Positionen offen sind
+        # (inkl. der in diesem Scan bereits eroeffneten).
+        self._entry_block_reason: str | None = None
+        self._open_position_count = 0
 
     def warm_up_with_backfill(self) -> None:
         """Laedt beim Start genug historische Bars pro Watchlist-Symbol vor,
@@ -195,7 +216,13 @@ class TradingBot:
                 logger.error("Alpaca API error during cycle: %s", exc)
             except Exception:
                 logger.exception("Unexpected error during trading cycle")
-            time.sleep(self._config.check_interval_minutes * 60)
+            time.sleep(
+                seconds_until_next_scan(
+                    time.time(),
+                    self._config.check_interval_minutes * 60,
+                    self._config.scan_delay_after_bar_close_seconds,
+                )
+            )
 
     def stop(self) -> None:
         """Signalisiert dem Sicherheits-Check-Thread zum Beenden und wartet
@@ -370,19 +397,20 @@ class TradingBot:
         equity = float(account.equity)
         buying_power = float(account.buying_power)
         today = datetime.now(timezone.utc).date()
-        self._risk_manager.start_new_day_if_needed(today, equity)
+        last_equity = float(account.last_equity)
 
-        if self._risk_manager.daily_loss_limit_hit():
-            logger.warning(
-                "Daily loss limit reached (realized P&L today: %.2f) — no new trades until tomorrow.",
-                self._risk_manager.realized_pnl_today,
+        # Tagesverlust-Limit: sperrt nur NEUE Einstiege. Exit-Signale fuer
+        # offene Positionen werden weiter ausgewertet -- gerade an einem
+        # Verlusttag sollen Trendbruch-Exits nicht ausgesetzt werden.
+        self._entry_block_reason = None
+        if self._risk_manager.daily_loss_limit_hit(today, equity, last_equity):
+            day_pct = self._risk_manager.daily_loss_pct(equity, last_equity)
+            self._entry_block_reason = (
+                f"Daily loss limit hit (equity {day_pct:+.2f}% vs. previous close, "
+                f"limit -{self._config.max_daily_loss_pct:.1f}%) — no new entries today."
             )
-            self._trade_logger.log(
-                symbol="ALL",
-                action="HALT",
-                reason=f"Daily loss limit hit (P&L today {self._risk_manager.realized_pnl_today:.2f}).",
-            )
-            return
+            logger.warning("%s Exit signals stay active.", self._entry_block_reason)
+            self._trade_logger.log(symbol="ALL", action="HALT", reason=self._entry_block_reason)
 
         watchlist = self._config.watchlist
 
@@ -410,6 +438,8 @@ class TradingBot:
             bars_by_symbol = self._data_feed.get_bars_batch(watchlist, limit=self._config.min_bars_required + 10)
         self._prefetched_bars = None
         self._prefetched_bars_at = None
+
+        self._open_position_count = sum(1 for p in positions.values() if float(p.qty) > 0)
 
         counts = {"BUY": 0, "SELL": 0, "HOLD": 0, "ERROR": 0}
         for symbol in watchlist:
@@ -729,6 +759,8 @@ class TradingBot:
 
     def _process_symbol(self, symbol, bars, position, equity: float, buying_power: float) -> str:
         try:
+            # Nur abgeschlossene Kerzen auswerten, siehe drop_incomplete_bars.
+            bars = drop_incomplete_bars(bars, self._config.timeframe)
             if bars is None or bars.empty:
                 self._trade_logger.log(symbol=symbol, action="HOLD", reason="No market data returned.")
                 return "HOLD"
@@ -748,7 +780,23 @@ class TradingBot:
                 signal = combine_with_pattern_signal(signal, pattern_signal, self._config)
 
             if signal.action == Action.BUY:
-                self._enter_long(symbol, price, equity, buying_power, signal.reason)
+                block_reason = self._entry_block_reason
+                if block_reason is None and self._risk_manager.max_positions_reached(self._open_position_count):
+                    block_reason = (
+                        f"Max open positions reached ({self._open_position_count}/"
+                        f"{self._config.max_open_positions}) — no new entry."
+                    )
+                if block_reason is not None:
+                    self._trade_logger.log(
+                        symbol=symbol,
+                        action="HOLD",
+                        reason=f"Entry signal present but blocked: {block_reason} {signal.reason}",
+                        price=price,
+                    )
+                    return "HOLD"
+                if not self._enter_long(symbol, price, equity, buying_power, signal.reason):
+                    return "HOLD"
+                self._open_position_count += 1
                 return "BUY"
             elif signal.action == Action.SELL:
                 self._exit_long(symbol, position, price, signal.reason)
@@ -777,7 +825,8 @@ class TradingBot:
             f"{pattern_signal.reason}{Style.RESET_ALL}"
         )
 
-    def _enter_long(self, symbol: str, price: float, equity: float, buying_power: float, reason: str) -> None:
+    def _enter_long(self, symbol: str, price: float, equity: float, buying_power: float, reason: str) -> bool:
+        """Gibt True zurueck, wenn tatsaechlich eine Kauforder aufgegeben wurde."""
         qty = self._risk_manager.calculate_position_size(equity, buying_power, price)
         if qty < 1:
             self._trade_logger.log(
@@ -787,7 +836,7 @@ class TradingBot:
                 f"(buying power ${buying_power:.2f}). {reason}",
                 price=price,
             )
-            return
+            return False
 
         prices = self._risk_manager.calculate_bracket_prices(price)
         try:
@@ -810,6 +859,7 @@ class TradingBot:
             order_id=str(order.id),
             status=str(order.status),
         )
+        return True
 
     def _exit_long(self, symbol: str, position, price: float, reason: str) -> None:
         if position is None:
@@ -825,7 +875,6 @@ class TradingBot:
         except OrderExecutionError as exc:
             self._failure_notifier.notify_order_failure(symbol, "Sell Order", exc)
             raise
-        self._risk_manager.register_realized_pnl(realized_pnl)
         logger.info(
             f"{Fore.RED}SELL {symbol} x{qty:g} @ ~{price:.2f} "
             f"(est. P&L {realized_pnl:.2f}) — {reason}{Style.RESET_ALL}"
